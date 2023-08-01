@@ -50,6 +50,9 @@ class Assign(Word):
         super().__init__(str)
         self.name = name
         self.value = value
+    
+    def is_assign(obj: object) -> bool:
+        return isinstance(obj, Assign)
 
 class Var(Word):
     def __init__(self, str: str, name: str):
@@ -178,14 +181,28 @@ class Lexer:
     def cut(self, span: tuple[int, int]):
         self.input = self.input[span[1]:]
 
-class Stmt:
-    def __init__(self, comment: Comment):
-        self.comment = comment
+class NewlineExp:
+    pass
 
-class Echo(Stmt):
-    def __init__(self, comment: Comment, args: list[Word]):
-        super().__init__(comment)
+class CommentExp:
+    pass
+
+class AssignExp:
+    def __init__(self, name: str, value: str):
+        self.name = name
+        self.value = value
+
+class CdExp:
+    def __init__(self, dir: Word):
+        self.dir = dir
+
+class EchoExp:
+    def __init__(self, args: list[Word]):
         self.args = args
+
+class CmdExp:
+    def __init__(self, cmd: list[Word]):
+        self.cmd = cmd
 
 class Parser:
     def __init__(self, token: list[object]):
@@ -194,34 +211,89 @@ class Parser:
     
     def parse(self):
         while True:
+            #eprint(self.token)
             if self.token == []:
                 eprint("parse done")
                 return self.stmt
+            elif self.parse_comment():
+                continue
+            elif self.parse_newline():
+                continue
+            elif self.parse_assign():
+                continue
+            elif self.parse_cd():
+                continue
             elif self.parse_echo():
+                continue
+            elif self.parse_cmd():
                 continue
             else:
                 eprint("parse failed")
                 return None
+
+    def parse_newline(self):
+        # no need to check out of range since this method is called
+        # for non-empty token list
+        if Newline.is_newline(self.token[0]):
+            self.cut(1)
+            return True
+        return False
+    
+    def parse_comment(self):
+        # same as above
+        if Comment.is_comment(self.token[0]):
+            self.cut(1)
+            return True
+        return False
+    
+    def parse_assign(self):
+        # same as above
+        t = self.token[0]
+        if Assign.is_assign(t):
+            self.stmt.append(AssignExp(t.name, t.value))
+            self.cut(1)
+            return True
+        return False
+    
+    def parse_cd(self):
+        # same as above
+        i = 0
+        if Word.is_word_with(self.token[i], "cd"):
+            i += 1
+            arg = None
+            if i < len(self.token) and Word.is_word(self.token[i]):
+                arg = self.token[i]
+                i += 1
+            self.stmt.append(CdExp(arg))
+            self.cut(i)
+            return True
+        return False
     
     def parse_echo(self):
         i = 0
-        comment = None
+        # same as above
         if Word.is_word_with(self.token[i], "echo"):
             args = []
             i += 1
-            while Word.is_word(self.token[i]):
+            while i < len(self.token) and Word.is_word(self.token[i]):
                 args.append(self.token[i])
                 i += 1
-            if Comment.is_comment(self.token[i]):
-                comment = self.token[i]
-                i += 1
-            if Newline.is_newline(self.token[i]):
-                i += 1
-            self.stmt.append(Echo(comment, args))
+            self.stmt.append(EchoExp(args))
             self.cut(i)
             return True
         else:
             return False
+    
+    def parse_cmd(self):
+        i = 0
+        cmd = []
+        # same as above
+        while i < len(self.token) and Word.is_word(self.token[i]):
+            cmd.append(self.token[i])
+            i += 1
+        self.stmt.append(CmdExp(cmd))
+        self.cut(i)
+        return True
     
     def cut(self, i: int):
         self.token = self.token[i:]
