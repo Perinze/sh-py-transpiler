@@ -207,55 +207,70 @@ class CmdExp:
 class Parser:
     def __init__(self, token: list[object]):
         self.token = token
-        self.stmt = []
-    
+        #self.stmt = []
+
     def parse(self):
+        return self.parse_sequence()
+    
+    def parse_sequence(self):
+        stmt = []
         while True:
             #eprint(self.token)
             if self.token == []:
                 eprint("parse done")
-                return self.stmt
-            elif self.parse_comment():
+                return stmt
+            elif self.parse_terminator():
+                eprint("block terminate")
+                return stmt
+            elif self.parse_comment(stmt):
                 continue
-            elif self.parse_newline():
+            elif self.parse_newline(stmt):
                 continue
-            elif self.parse_assign():
+            elif self.parse_assign(stmt):
                 continue
-            elif self.parse_cd():
+            elif self.parse_cd(stmt):
                 continue
-            elif self.parse_echo():
+            elif self.parse_echo(stmt):
                 continue
-            elif self.parse_cmd():
+            elif self.parse_cmd(stmt):
                 continue
             else:
                 eprint("parse failed")
                 return None
 
-    def parse_newline(self):
+    # this method won't consume token
+    def parse_terminator(self):
+        if Word.is_word_with(self.token[0], "done"):
+            return True
+        return False
+
+    def parse_newline(self, stmt: list[object]):
         # no need to check out of range since this method is called
         # for non-empty token list
         if Newline.is_newline(self.token[0]):
+            stmt.append(NewlineExp())
             self.cut(1)
             return True
         return False
     
-    def parse_comment(self):
+    def parse_comment(self, stmt: list[object]):
         # same as above
         if Comment.is_comment(self.token[0]):
+            stmt.append(CommentExp())
             self.cut(1)
             return True
         return False
     
-    def parse_assign(self):
+    def parse_assign(self, stmt: list[object]):
         # same as above
         t = self.token[0]
         if Assign.is_assign(t):
-            self.stmt.append(AssignExp(t.name, t.value))
+            stmt.append(AssignExp(t.name, t.value))
             self.cut(1)
             return True
         return False
     
-    def parse_cd(self):
+    def parse_cd(self, stmt: list[object]):
         # same as above
         i = 0
         if Word.is_word_with(self.token[i], "cd"):
@@ -264,12 +279,12 @@ class Parser:
             if i < len(self.token) and Word.is_word(self.token[i]):
                 arg = self.token[i]
                 i += 1
-            self.stmt.append(CdExp(arg))
+            stmt.append(CdExp(arg))
             self.cut(i)
             return True
         return False
     
-    def parse_echo(self):
+    def parse_echo(self, stmt: list[object]):
         i = 0
         # same as above
         if Word.is_word_with(self.token[i], "echo"):
@@ -278,20 +293,20 @@ class Parser:
             while i < len(self.token) and Word.is_word(self.token[i]):
                 args.append(self.token[i])
                 i += 1
-            self.stmt.append(EchoExp(args))
+            stmt.append(EchoExp(args))
             self.cut(i)
             return True
         else:
             return False
     
-    def parse_cmd(self):
+    def parse_cmd(self, stmt: list[object]):
         i = 0
         cmd = []
         # same as above
         while i < len(self.token) and Word.is_word(self.token[i]):
             cmd.append(self.token[i])
             i += 1
-        self.stmt.append(CmdExp(cmd))
+        stmt.append(CmdExp(cmd))
         self.cut(i)
         return True
     
