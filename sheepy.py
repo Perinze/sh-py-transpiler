@@ -39,51 +39,44 @@ class Word:
     def __init__(self, str: str):
         self.str = str
 
-class Transpiler:
+class Lexer:
     def __init__(self, input: str):
         self.input = input
-        self.header = "#!/usr/bin/python3 -u\n"
-        self.body = ""
         self.token = []
-
-    def transpile(self) -> str:
+    
+    def tokenize(self) -> list[object]:
         self.shebang()
-        self.parse()
-        return self.header + self.body
+        while True:
+            if self.lex_comment():
+                continue
+            elif self.lex_squote():
+                continue
+            elif self.lex_newline():
+                continue
+            elif self.lex_assign():
+                continue
+            elif self.lex_var():
+                continue
+            elif self.lex_varcurly():
+                continue
+            elif self.lex_word():
+                continue
+            elif self.lex_empty():
+                continue
+            elif self.eof():
+                eprint("lex done")
+                return self.token
+            else: # failed
+                eprint("failed")
+                return None
 
     def shebang(self):
         m = re.search(t_SHEBANG, self.input)
         if m.span()[0] == 0: # match at ln 0 col 0
             self.cut(m.span())
         eprint(self.input)
-    
-    def parse(self):
-        while True:
-            if self.parse_comment():
-                continue
-            elif self.parse_squote():
-                continue
-            elif self.parse_newline():
-                continue
-            elif self.parse_assign():
-                continue
-            elif self.parse_var():
-                continue
-            elif self.parse_varcurly():
-                continue
-            elif self.parse_word():
-                continue
-            elif self.parse_empty():
-                continue
-            elif self.eof():
-                eprint("parse done")
-                eprint(self.token)
-                return
-            else: # failed
-                eprint("failed")
-                return
-    
-    def parse_comment(self) -> bool:
+
+    def lex_comment(self) -> bool:
         m = re.search(t_COMMENT, self.input)
         if m == None:
             return False
@@ -93,7 +86,7 @@ class Transpiler:
             return True
         return False
     
-    def parse_squote(self) -> bool:
+    def lex_squote(self) -> bool:
         m = re.search(t_SQUOTE, self.input)
         if m == None:
             return False
@@ -103,7 +96,7 @@ class Transpiler:
             return True
         return False
     
-    def parse_newline(self) -> bool:
+    def lex_newline(self) -> bool:
         m = re.search(t_NEWLINE, self.input)
         if m == None:
             return False
@@ -113,7 +106,7 @@ class Transpiler:
             return True
         return False
 
-    def parse_assign(self) -> bool:
+    def lex_assign(self) -> bool:
         m = re.search(t_ASSIGN, self.input)
         if m == None:
             return False
@@ -123,7 +116,7 @@ class Transpiler:
             return True
         return False
 
-    def parse_var(self) -> bool:
+    def lex_var(self) -> bool:
         m = re.search(t_VAR, self.input)
         if m == None:
             return False
@@ -133,7 +126,7 @@ class Transpiler:
             return True
         return False
 
-    def parse_varcurly(self) -> bool:
+    def lex_varcurly(self) -> bool:
         m = re.search(t_VARCURLY, self.input)
         if m == None:
             return False
@@ -143,7 +136,7 @@ class Transpiler:
             return True
         return False
 
-    def parse_word(self) -> bool:
+    def lex_word(self) -> bool:
         m = re.search(t_WORD, self.input)
         if m == None:
             return False
@@ -153,7 +146,7 @@ class Transpiler:
             return True
         return False
 
-    def parse_empty(self) -> bool:
+    def lex_empty(self) -> bool:
         m = re.search(t_EMPTY, self.input)
         if m == None:
             return False
@@ -167,6 +160,19 @@ class Transpiler:
         
     def cut(self, span: tuple[int, int]):
         self.input = self.input[span[1]:]
+
+class Transpiler:
+    def __init__(self, input: str):
+        self.input = input
+        self.header = "#!/usr/bin/python3 -u\n"
+        self.body = ""
+        self.token = []
+
+    def transpile(self) -> str:
+        lexer = Lexer(self.input)
+        self.token = lexer.tokenize()
+        eprint(self.token)
+        return self.header + self.body
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
