@@ -14,11 +14,15 @@ t_EMPTY = r'\s+'
 
 test_operators = ["=", "!="]
 
-def eprint(*args, **kwargs):
+def eprint(*args, **kwargs) -> None:
     print(*args, file=sys.stderr, **kwargs)
 
-class Word:
-    def __init__(self, str: str):
+class Token:
+    pass
+
+class Word(Token):
+    def __init__(self, str: str) -> None:
+        super().__init__()
         self.str = str
     
     def is_word(obj: object) -> bool:
@@ -31,27 +35,31 @@ class Word:
             return True
         return False
 
-class Comment:
-    def __init__(self, content: str):
+class Comment(Token):
+    def __init__(self, content: str) -> None:
+        super().__init__()
         self.content = content
     
     def is_comment(obj: object) -> bool:
         return isinstance(obj, Comment)
 
 class SQuote(Word):
-    def __init__(self, str: str, content: str):
+    def __init__(self, str: str, content: str) -> None:
         super().__init__(str)
         self.content = content
 
     def is_squote(obj: object) -> bool:
         return isinstance(obj, SQuote)
 
-class Newline:
+class Newline(Token):
+    def __init__(self) -> None:
+        super().__init__()
+
     def is_newline(obj: object) -> bool:
         return isinstance(obj, Newline)
 
 class Assign(Word):
-    def __init__(self, str: str, name: str, value: str):
+    def __init__(self, str: str, name: str, value: str) -> None:
         super().__init__(str)
         self.name = name
         self.value = value
@@ -60,7 +68,7 @@ class Assign(Word):
         return isinstance(obj, Assign)
 
 class Var(Word):
-    def __init__(self, str: str, name: str):
+    def __init__(self, str: str, name: str) -> None:
         super().__init__(str)
         self.name = name
     
@@ -68,11 +76,11 @@ class Var(Word):
         return isinstance(obj, Var)
 
 class Lexer:
-    def __init__(self, input: str):
-        self.input = input
-        self.token = []
+    def __init__(self, input: str) -> None:
+        self.input: str = input
+        self.token: list[Token] = []
     
-    def tokenize(self) -> list[object]:
+    def tokenize(self) -> list[Token]:
         self.shebang()
         while True:
             if self.lex_comment():
@@ -98,7 +106,7 @@ class Lexer:
                 eprint("failed")
                 return None
 
-    def shebang(self):
+    def shebang(self) -> None:
         m = re.search(t_SHEBANG, self.input)
         if m.span()[0] == 0: # match at ln 0 col 0
             self.cut(m.span())
@@ -186,7 +194,7 @@ class Lexer:
     def eof(self) -> bool:
         return self.input == ""
         
-    def cut(self, span: tuple[int, int]):
+    def cut(self, span: tuple[int, int]) -> None:
         self.input = self.input[span[1]:]
 
 class NewlineExp:
