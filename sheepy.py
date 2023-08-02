@@ -329,9 +329,9 @@ class Parser:
             elif self.next_is_terminator():
                 eprint("block terminate")
                 return True
-            elif self.parse_comment(stmt):
-                eprint("comment")
-                continue
+            #elif self.parse_comment(stmt):
+            #    eprint("comment")
+            #    continue
             elif self.parse_newline(stmt):
                 eprint("newline")
                 continue
@@ -367,76 +367,104 @@ class Parser:
                 self.pos, stmt = bak
                 return False
 
-    # this method won't consume token
+    # methods below won't consume token, just detect
+
+    def pos_out_of_range(self) -> bool:
+        return self.pos >= len(self.token)
+
+    def next_is_word(self) -> bool:
+        if self.pos_out_of_range():
+            return False
+        if Word.is_word(self.token[self.pos]):
+            return True
+        return False
+
+    def next_is_word_with(self, expect: str) -> bool:
+        if self.pos_out_of_range():
+            return False
+        if Word.is_word_with(self.token[self.pos], expect):
+            return True
+        return False
+
+    def next_is_newline(self) -> bool:
+        if self.pos_out_of_range():
+            return False
+        if Newline.is_newline(self.token[self.pos]):
+            return True
+        return False
+
+    def next_is_assign(self) -> bool:
+        if self.pos_out_of_range():
+            return False
+        if Assign.is_assign(self.token[self.pos]):
+            return True
+        return False
+
     def next_is_terminator(self) -> bool:
-        if Word.is_word_with(self.token[self.pos], "done"):
+        if self.pos_out_of_range():
+            return False
+        if self.next_is_word_with("done"):
             return True
-        if Word.is_word_with(self.token[self.pos], "elif"):
+        if self.next_is_word_with("elif"):
             return True
-        if Word.is_word_with(self.token[self.pos], "else"):
+        if self.next_is_word_with("else"):
             return True
-        if Word.is_word_with(self.token[self.pos], "fi"):
-            return True
-        return False
-
-    # this method won't consume token
-    def next_is_elif(self) -> bool:
-        if Word.is_word_with(self.token[self.pos], "elif"):
+        if self.next_is_word_with("fi"):
             return True
         return False
 
-    def consume_next_newline(self) -> bool:
-        if self.pos < len(self.token) and Newline.is_newline(self.token[self.pos]):
-            self.pos += 1
-            return True
-        return False
-
-    def consume_next_assign(self) -> Assign:
-        if self.pos < len(self.token) and Assign.is_assign(self.token[self.pos]):
-            t = self.token[self.pos]
-            self.pos += 1
-            return t
-        return None
+    # methods below will consume token
 
     def consume_next_word(self) -> Word:
-        if self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
+        if self.next_is_word():
             word = self.token[self.pos]
             self.pos += 1
             return word
         return None
 
-    def consume_next_word_if_str_is(self, expect: str) -> bool:
-        if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], expect):
+    def consume_next_word_if_is(self, expect: str) -> bool:
+        if self.next_is_word_with(expect):
             self.pos += 1
             return True
         return False
 
+    def consume_next_newline(self) -> bool:
+        if self.next_is_newline():
+            self.pos += 1
+            return True
+        return False
+
+    def consume_next_assign(self) -> Assign:
+        if self.next_is_assign():
+            t = self.token[self.pos]
+            self.pos += 1
+            return t
+        return None
+
+    # parsers below
+
     def parse_newline(self, stmt: list[Exp]) -> bool:
-        # no need to check out of range since this method is called
-        # for non-empty token list
         if self.consume_next_newline():
             stmt.append(NewlineExp())
             return True
         return False
     
-    def parse_comment(self, stmt: list[object]) -> bool:
-        # same as above
-        if Comment.is_comment(self.token[self.pos]):
-            stmt.append(CommentExp())
-            self.pos += 1
-            return True
-        return False
+    #def parse_comment(self, stmt: list[object]) -> bool:
+    #    # same as above
+    #    if Comment.is_comment(self.token[self.pos]):
+    #        stmt.append(CommentExp())
+    #        self.pos += 1
+    #        return True
+    #    return False
     
-    def parse_assign(self, stmt: list[object]) -> bool:
-        # same as above
+    def parse_assign(self, stmt: list[Exp]) -> bool:
         if (t := self.consume_next_assign()) != None:
             stmt.append(AssignExp(t.name, t.value))
             return True
         return False
     
     def parse_cd(self, stmt: list[object]) -> bool:
-        # same as above
-        if self.consume_next_word_if_str_is("cd"):
+        if self.consume_next_word_if_is("cd"):
             arg = None
             if (t := self.consume_next_word()) != None:
                 arg = t
@@ -445,33 +473,23 @@ class Parser:
         return False
     
     def parse_exit(self, stmt: list[Exp]) -> bool:
-        # same as above
-        #if Word.is_word_with(self.token[self.pos], "exit"):
-        if self.consume_next_word_if_str_is("exit"):
+        if self.consume_next_word_if_is("exit"):
             exit_code = None
-            #self.pos += 1
-            if self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
-                exit_code = self.token[self.pos]
-                self.pos += 1
+            if self.next_is_word():
+                exit_code = self.consume_next_word()
             stmt.append(ExitExp(exit_code))
             return True
         return False
     
     def parse_read(self, stmt: list[Exp]) -> bool:
-        # same as above
-        #if Word.is_word_with(self.token[self.pos], "read"):
-        if self.consume_next_word_if_str_is("read"):
-            #self.pos += 1
+        if self.consume_next_word_if_is("read"):
             arg = self.consume_next_word()
-            if arg == "":
-                arg = None
             stmt.append(ReadExp(arg))
             return True
         return False
     
     def parse_echo(self, stmt: list[Exp]) -> bool:
-        # same as above
-        if self.consume_next_word_if_str_is("echo"):
+        if self.consume_next_word_if_is("echo"):
             args = []
             while (next_arg := self.consume_next_word()) != None:
                 args.append(next_arg)
@@ -486,7 +504,7 @@ class Parser:
         iter = []
         body = []
         # for
-        if not self.consume_next_word_if_str_is("for"):
+        if not self.consume_next_word_if_is("for"):
             self.pos, stmt = bak
             return False
         # loop-var
@@ -496,7 +514,7 @@ class Parser:
             self.pos, stmt = bak
             return False
         # in
-        if not self.consume_next_word_if_str_is("in"):
+        if not self.consume_next_word_if_is("in"):
             self.pos, stmt = bak
             return False
         # iterable
@@ -507,7 +525,7 @@ class Parser:
             self.pos, stmt = bak
             return False
         # do
-        if not self.consume_next_word_if_str_is("do"):
+        if not self.consume_next_word_if_is("do"):
             self.pos, stmt = bak
             return False
         # newline TODO semicolon
@@ -519,7 +537,7 @@ class Parser:
             self.pos, stmt = bak
             return False
         # done
-        if not self.consume_next_word_if_str_is("done"):
+        if not self.consume_next_word_if_is("done"):
             self.pos, stmt = bak
             return False
         stmt.append(ForExp(var, iter, body))
@@ -534,7 +552,7 @@ class Parser:
     def parse_pred_comparation(self) -> TestExp:
         bak = self.pos
         # test keyword
-        if not self.consume_next_word_if_str_is("test"):
+        if not self.consume_next_word_if_is("test"):
             self.pos = bak
             return None
         lhs = None
@@ -568,40 +586,29 @@ class Parser:
 
     def parse_if(self, stmt: list[Exp]) -> bool:
         bak = (self.pos, stmt)
-        # if
-        #if Word.is_word_with(self.token[self.pos], "if"):
-        #    self.pos += 1
-        #else:
-        if not self.consume_next_word_if_str_is("if"):
-            self.pos, stmt = bak
-            return False
         # init for-exp fields
         pred = []
         branch = []
+        # if
+        if not self.consume_next_word_if_is("if"):
+            self.pos, stmt = bak
+            return False
         # first predicate
-        test = self.parse_pred()
-        if test != None:
+        if (test := self.parse_pred()) != None:
             pred.append(test)
         else:
             self.pos, stmt = bak
             return False
         # newline TODO semicolon
-        if self.pos < len(self.token) and Newline.is_newline(self.token[self.pos]):
-            self.pos += 1
-        else:
+        if not self.consume_next_newline():
             self.pos, stmt = bak
             return False
         # then
-        #if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "then"):
-        #    self.pos += 1
-        #else:
-        if not self.consume_next_word_if_str_is("then"):
+        if not self.consume_next_word_if_is("then"):
             self.pos, stmt = bak
             return False
         # newline TODO semicolon
-        if self.pos < len(self.token) and Newline.is_newline(self.token[self.pos]):
-            self.pos += 1
-        else:
+        if not self.consume_next_newline():
             self.pos, stmt = bak
             return False
         # first body
@@ -611,31 +618,23 @@ class Parser:
             return False
         branch.append(body)
         # elif loop
-        while self.pos < len(self.token) and self.next_is_elif():
-            self.pos += 1
+        while self.consume_next_word_if_is("elif"):
             # predicate
-            test = self.parse_pred()
-            if test != None:
+            if (test := self.parse_pred()) != None:
                 pred.append(test)
             else:
                 self.pos, stmt = bak
                 return False
             # newline TODO semicolon
-            if self.pos < len(self.token) and Newline.is_newline(self.token[self.pos]):
-                self.pos += 1
-            else:
+            if not self.consume_next_newline():
                 self.pos, stmt = bak
                 return False
             # then
-            if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "then"):
-                self.pos += 1
-            else:
+            if not self.consume_next_word_if_is("then"):
                 self.pos, stmt = bak
                 return False
             # newline TODO semicolon
-            if self.pos < len(self.token) and Newline.is_newline(self.token[self.pos]):
-                self.pos += 1
-            else:
+            if not self.consume_next_newline():
                 self.pos, stmt = bak
                 return False
             # body
@@ -645,15 +644,11 @@ class Parser:
                 return False
             branch.append(body)
         # else
-        if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "else"):
-            self.pos += 1
-        else:
+        if not self.consume_next_word_if_is("else"):
             self.pos, stmt = bak
             return False
         # newline TODO semicolon
-        if self.pos < len(self.token) and Newline.is_newline(self.token[self.pos]):
-            self.pos += 1
-        else:
+        if not self.consume_next_newline():
             self.pos, stmt = bak
             return False
         # body
@@ -663,9 +658,7 @@ class Parser:
             return False
         branch.append(body)
         # fi
-        if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "fi"):
-            self.pos += 1
-        else:
+        if not self.consume_next_word_if_is("fi"):
             self.pos, stmt = bak
             return False
         stmt.append(IfExp(pred, branch))
@@ -673,37 +666,27 @@ class Parser:
     
     def parse_while(self, stmt: list[Exp]) -> bool:
         bak = (self.pos, stmt)
-        # while
-        if Word.is_word_with(self.token[self.pos], "while"):
-            self.pos += 1
-        else:
-            self.pos, stmt = bak
-            return False
         # init while-exp fields
         pred = None
         body = []
+        # while
+        if not self.consume_next_word_if_is("while"):
+            self.pos, stmt = bak
+            return False
         # predicate
-        pred = self.parse_pred()
-        eprint(pred)
-        if pred == None:
+        if (pred := self.parse_pred()) == None:
             self.pos, stmt = bak
             return False
         # newline TODO semicolon
-        if self.pos < len(self.token) and Newline.is_newline(self.token[self.pos]):
-            self.pos += 1
-        else:
+        if not self.consume_next_newline():
             self.pos, stmt = bak
             return False
         # do
-        if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "do"):
-            self.pos += 1
-        else:
+        if not self.consume_next_word_if_is("do"):
             self.pos, stmt = bak
             return False
         # newline TODO semicolon
-        if self.pos < len(self.token) and Newline.is_newline(self.token[self.pos]):
-            self.pos += 1
-        else:
+        if not self.consume_next_newline():
             self.pos, stmt = bak
             return False
         # body
@@ -711,9 +694,7 @@ class Parser:
             self.pos, stmt = bak
             return False
         # done
-        if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "done"):
-            self.pos += 1
-        else:
+        if not self.consume_next_word_if_is("done"):
             self.pos, stmt = bak
             return False
         stmt.append(WhileExp(pred, body))
@@ -721,10 +702,8 @@ class Parser:
     
     def parse_cmd(self, stmt: list[Exp]) -> bool:
         cmd = []
-        # same as above
-        while self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
-            cmd.append(self.token[self.pos])
-            self.pos += 1
+        while self.next_is_word():
+            cmd.append(self.consume_next_word())
         stmt.append(CmdExp(cmd))
         return True
 
