@@ -184,7 +184,8 @@ class Lexer:
         self.input = self.input[span[1]:]
 
 class NewlineExp:
-    pass
+    def is_newline_exp(obj: object) -> bool:
+        return isinstance(obj, NewlineExp)
 
 class CommentExp:
     pass
@@ -201,6 +202,9 @@ class CdExp:
 class EchoExp:
     def __init__(self, args: list[Word]):
         self.args = args
+
+    def is_echo_exp(obj: object) -> bool:
+        return isinstance(obj, EchoExp)
 
 class ForExp:
     def __init__(self, var: Word, iter: list[Word], body: list[object]):
@@ -575,14 +579,12 @@ class Parser:
         # init while-exp fields
         pred = None
         body = []
-        eprint(2222222)
         # predicate
         pred = self.parse_pred()
         eprint(pred)
         if pred == None:
             self.pos, stmt = bak
             return False
-        eprint(1111111)
         # newline TODO semicolon
         if self.pos < len(self.token) and Newline.is_newline(self.token[self.pos]):
             self.pos += 1
@@ -623,14 +625,54 @@ class Parser:
         stmt.append(CmdExp(cmd))
         return True
 
-class Transpiler:
-    def __init__(self):
-        self.header = "#!/usr/bin/python3 -u\n"
-        self.body = ""
-        self.token = []
+class Translator:
+    def __init__(self, ast: list[object]):
+        #self.header = "#!/usr/bin/python3 -u\n"
+        self.ast = ast
 
-    def transpile(self) -> str:
-        return self.header + self.body
+    def translate(self) -> str:
+        self.header = "#!/usr/bin/python3 -u\n"
+        body = self.translate_sequence(self.ast)
+        return self.header + body
+    
+    def translate_sequence(self, explist: list[object], indent: int = 0) -> str:
+        body = ""
+        beginning_of_line = True
+        shift_str = indent * 4 * " "
+        for exp in explist:
+            if beginning_of_line:
+                body += shift_str
+                beginning_of_line = False
+            increment = self.translate_newline(exp)
+            if increment != "":
+                beginning_of_line = True
+                body += increment
+                continue
+            increment = self.translate_echo(exp)
+            if increment != "":
+                body += increment
+                continue
+            # none of these matches
+            eprint("translate clause not implemented")
+            return "error: not valid exp"
+        return body
+    
+    def translate_newline(self, exp: object) -> str:
+        if NewlineExp.is_newline_exp(exp):
+            return "\n"
+        return ""
+    
+    def translate_echo(self, exp: object) -> str:
+        if EchoExp.is_echo_exp(exp):
+            fmt = "print({})"
+            args: list[str] = map(self.translate_word, exp.args)
+            code = fmt.format(", ".join(args))
+            return code
+        return ""
+    
+    # TODO implement word str only
+    def translate_word(self, word: Word) -> str:
+        return f"'{word.str}'"
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
@@ -644,6 +686,9 @@ if __name__ == '__main__':
         parser = Parser(token)
         stmt = parser.parse()
         eprint(stmt)
+        translator = Translator(stmt)
+        code = translator.translate()
+        print(code)
 
 def repl_test(filename: str) -> tuple[object, object]:
     with open(filename) as f:
