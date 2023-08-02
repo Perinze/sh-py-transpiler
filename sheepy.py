@@ -666,8 +666,10 @@ class Translator:
     def __init__(self, ast: list[object]):
         #self.header = "#!/usr/bin/python3 -u\n"
         self.ast = ast
-        self.subprocess_import = False
+        self.glob_import = False
         self.os_import = False
+        self.subprocess_import = False
+        self.sys_import = False
 
     def translate(self) -> str:
         header = "#!/usr/bin/python3 -u\n"
@@ -741,6 +743,9 @@ class Translator:
     
     # check variable embedded in a word
     def translate_word_str(self, word: str) -> str:
+        if '*' in word:
+            self.glob_import = True
+            return f"sorted(glob.glob(\"{word}\"))"
         return f"'{word}'"
     
     def translate_cd(self, exp: object) -> str:
