@@ -12,6 +12,8 @@ t_VARCURLY = r'\${(\w+)}'
 t_WORD = r'(\S+)'
 t_EMPTY = r'\s+'
 
+test_operators = ["=", "!="]
+
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
@@ -209,19 +211,25 @@ class ForExp:
 class TestExp:
     pass
 
-class EqTestExp(TestExp):
-    def __init__(self, lhs: Word, rhs: Word) -> None:
+class CmpTestExp(TestExp):
+    def __init__(self, op: Word, lhs: Word, rhs: Word) -> None:
         super().__init__()
+        self.op = op
         self.lhs = lhs
         self.rhs = rhs
 
-    def is_eq_test_exp(obj: object) -> bool:
-        return isinstance(obj, EqTestExp)
+    def is_cmp_test_exp(obj: object) -> bool:
+        return isinstance(obj, CmpTestExp)
 
 class IfExp:
     def __init__(self, pred: list[TestExp], branch: list[list[object]]):
         self.pred = pred
         self.branch = branch
+
+class WhileExp:
+    def __init__(self, pred: TestExp, body: list[object]):
+        self.pred = pred
+        self.body = body
 
 class CmdExp:
     def __init__(self, cmd: list[Word]):
@@ -268,9 +276,9 @@ class Parser:
             elif self.parse_if(stmt):
                 eprint("if")
                 continue
-            #elif self.parse_while(stmt):
-            #    eprint("while")
-            #    continue
+            elif self.parse_while(stmt):
+                eprint("while")
+                continue
             elif self.parse_cmd(stmt):
                 eprint("cmd")
                 continue
@@ -409,13 +417,18 @@ class Parser:
 
     # TODO only implemented eq test in subset 2
     def parse_pred(self) -> TestExp:
+        testexp = self.parse_pred_comparation()
+        if testexp != None:
+            return testexp
+
+    def parse_pred_comparation(self) -> TestExp:
         bak = self.pos
         # test keyword
         if Word.is_word_with(self.token[self.pos], "test"):
             self.pos += 1
         else:
             self.pos = bak
-            return False
+            return None
         lhs = None
         # lhs
         if Word.is_word(self.token[self.pos]):
@@ -423,13 +436,20 @@ class Parser:
             self.pos += 1
         else:
             self.pos = bak
-            return False
-        # eq =
-        if Word.is_word_with(self.token[self.pos], "="):
+            return None
+        # operator
+        operator = None
+        if Word.is_word(self.token[self.pos]):
+            op = self.token[self.pos].str
+            # check if operator is valid
+            if not (op in test_operators):
+                self.pos = bak
+                return None
+            operator = self.token[self.pos]
             self.pos += 1
         else:
             self.pos = bak
-            return False
+            return None
         # rhs
         rhs = None
         if Word.is_word(self.token[self.pos]):
@@ -437,9 +457,9 @@ class Parser:
             self.pos += 1
         else:
             self.pos = bak
-            return False
+            return None
         # success
-        return EqTestExp(lhs, rhs)
+        return CmpTestExp(operator, lhs, rhs)
 
     def parse_if(self, stmt: list[object]):
         bak = (self.pos, stmt)
@@ -535,7 +555,63 @@ class Parser:
             self.pos, stmt = bak
             return False
         branch.append(body)
+        # fi
+        if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "fi"):
+            self.pos += 1
+        else:
+            self.pos, stmt = bak
+            return False
         stmt.append(IfExp(pred, branch))
+        return True
+    
+    def parse_while(self, stmt: list[object]):
+        bak = (self.pos, stmt)
+        # while
+        if Word.is_word_with(self.token[self.pos], "while"):
+            self.pos += 1
+        else:
+            self.pos, stmt = bak
+            return False
+        # init while-exp fields
+        pred = None
+        body = []
+        eprint(2222222)
+        # predicate
+        pred = self.parse_pred()
+        eprint(pred)
+        if pred == None:
+            self.pos, stmt = bak
+            return False
+        eprint(1111111)
+        # newline TODO semicolon
+        if self.pos < len(self.token) and Newline.is_newline(self.token[self.pos]):
+            self.pos += 1
+        else:
+            self.pos, stmt = bak
+            return False
+        # do
+        if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "do"):
+            self.pos += 1
+        else:
+            self.pos, stmt = bak
+            return False
+        # newline TODO semicolon
+        if self.pos < len(self.token) and Newline.is_newline(self.token[self.pos]):
+            self.pos += 1
+        else:
+            self.pos, stmt = bak
+            return False
+        # body
+        if not self.parse_sequence(body):
+            self.pos, stmt = bak
+            return False
+        # done
+        if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "done"):
+            self.pos += 1
+        else:
+            self.pos, stmt = bak
+            return False
+        stmt.append(WhileExp(pred, body))
         return True
     
     def parse_cmd(self, stmt: list[object]):
