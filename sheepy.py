@@ -228,6 +228,9 @@ class ForExp:
         self.iter = iter
         self.body = body
 
+    def is_for_exp(obj: object) -> bool:
+        return isinstance(obj, ForExp)
+
 class TestExp:
     pass
 
@@ -374,7 +377,7 @@ class Parser:
         if Word.is_word_with(self.token[self.pos], "exit"):
             exit_code = None
             self.pos += 1
-            while self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
+            if self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
                 exit_code = self.token[self.pos]
                 self.pos += 1
             stmt.append(ExitExp(exit_code))
@@ -703,7 +706,15 @@ class Translator:
                 beginning_of_line = True
                 body += increment
                 continue
+            increment = self.translate_exit(exp)
+            if increment != "":
+                body += increment
+                continue
             increment = self.translate_echo(exp)
+            if increment != "":
+                body += increment
+                continue
+            increment = self.translate_for(exp, indent)
             if increment != "":
                 body += increment
                 continue
@@ -749,6 +760,18 @@ class Translator:
             return code
         return ""
     
+    def translate_exit(self, exp: object) -> str:
+        if ExitExp.is_exit_exp(exp):
+            self.sys_import = True
+            fmt = "sys.exit({})"
+            if exp.exit_code == None:
+                exit_code = ""
+            else:
+                exit_code = exp.exit_code.str
+            code = fmt.format(exit_code)
+            return code
+        return ""
+    
     def translate_echo(self, exp: object) -> str:
         if EchoExp.is_echo_exp(exp):
             fmt = "print({})"
@@ -756,6 +779,15 @@ class Translator:
             code = fmt.format(", ".join(args))
             return code
         return ""
+
+    def translate_for(self, exp: object, indent: int) -> str:
+        if ForExp.is_for_exp(exp):
+            fmt = "for {} in {}:\n"
+            var = exp.var.str
+            iterlist = map(self.translate_word, exp.iter)
+            for_header = fmt.format(var, ", ".join(iterlist))
+            body = self.translate_sequence(exp.body, indent+1)
+            return for_header + body
 
     def translate_cmd(self, exp: object) -> str:
         if CmdExp.is_cmd_exp(exp):
