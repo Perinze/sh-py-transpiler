@@ -385,7 +385,27 @@ class Parser:
             return True
         return False
 
-    def consume_next_word_or_recover_if_str_is(self, expect: str) -> bool:
+    def consume_next_newline(self) -> bool:
+        if self.pos < len(self.token) and Newline.is_newline(self.token[self.pos]):
+            self.pos += 1
+            return True
+        return False
+
+    def consume_next_assign(self) -> Assign:
+        if self.pos < len(self.token) and Assign.is_assign(self.token[self.pos]):
+            t = self.token[self.pos]
+            self.pos += 1
+            return t
+        return None
+
+    def consume_next_word(self) -> Word:
+        if self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
+            word = self.token[self.pos]
+            self.pos += 1
+            return word
+        return None
+
+    def consume_next_word_if_str_is(self, expect: str) -> bool:
         if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], expect):
             self.pos += 1
             return True
@@ -394,9 +414,8 @@ class Parser:
     def parse_newline(self, stmt: list[Exp]) -> bool:
         # no need to check out of range since this method is called
         # for non-empty token list
-        if Newline.is_newline(self.token[self.pos]):
+        if self.consume_next_newline():
             stmt.append(NewlineExp())
-            self.pos += 1
             return True
         return False
     
@@ -410,21 +429,17 @@ class Parser:
     
     def parse_assign(self, stmt: list[object]) -> bool:
         # same as above
-        t = self.token[self.pos]
-        if Assign.is_assign(t):
+        if (t := self.consume_next_assign()) != None:
             stmt.append(AssignExp(t.name, t.value))
-            self.pos += 1
             return True
         return False
     
     def parse_cd(self, stmt: list[object]) -> bool:
         # same as above
-        #if Word.is_word_with(self.token[self.pos], "cd"):
-        if self.consume_next_word_or_recover_if_str_is("cd"):
+        if self.consume_next_word_if_str_is("cd"):
             arg = None
-            if self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
-                arg = self.token[self.pos]
-                self.pos += 1
+            if (t := self.consume_next_word()) != None:
+                arg = t
             stmt.append(CdExp(arg))
             return True
         return False
@@ -432,7 +447,7 @@ class Parser:
     def parse_exit(self, stmt: list[Exp]) -> bool:
         # same as above
         #if Word.is_word_with(self.token[self.pos], "exit"):
-        if self.consume_next_word_or_recover_if_str_is("exit"):
+        if self.consume_next_word_if_str_is("exit"):
             exit_code = None
             #self.pos += 1
             if self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
@@ -445,77 +460,58 @@ class Parser:
     def parse_read(self, stmt: list[Exp]) -> bool:
         # same as above
         #if Word.is_word_with(self.token[self.pos], "read"):
-        if self.consume_next_word_or_recover_if_str_is("read"):
-            arg = None
+        if self.consume_next_word_if_str_is("read"):
             #self.pos += 1
-            if self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
-                arg = self.token[self.pos]
-                self.pos += 1
+            arg = self.consume_next_word()
+            if arg == "":
+                arg = None
             stmt.append(ReadExp(arg))
             return True
         return False
     
     def parse_echo(self, stmt: list[Exp]) -> bool:
         # same as above
-        #if Word.is_word_with(self.token[self.pos], "echo"):
-        if self.consume_next_word_or_recover_if_str_is("echo"):
+        if self.consume_next_word_if_str_is("echo"):
             args = []
-            #self.pos += 1
-            while self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
-                args.append(self.token[self.pos])
-                self.pos += 1
+            while (next_arg := self.consume_next_word()) != None:
+                args.append(next_arg)
             stmt.append(EchoExp(args))
             return True
         return False
     
     def parse_for(self, stmt: list[Exp]) -> bool:
         bak = (self.pos, stmt)
-        # for
-        #if Word.is_word_with(self.token[self.pos], "for"):
-        #    self.pos += 1
-        #else:
-        if not self.consume_next_word_or_recover_if_str_is("for"):
-            self.pos, stmt = bak
-            return False
         # init for-exp fields
         var = None
         iter = []
         body = []
+        # for
+        if not self.consume_next_word_if_str_is("for"):
+            self.pos, stmt = bak
+            return False
         # loop-var
-        if self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
-            var = self.token[self.pos]
-            self.pos += 1
+        if (t := self.consume_next_word()) != None:
+            var = t
         else:
             self.pos, stmt = bak
             return False
         # in
-        #if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "in"):
-        #    self.pos += 1
-        #else:
-        if not self.consume_next_word_or_recover_if_str_is("in"):
+        if not self.consume_next_word_if_str_is("in"):
             self.pos, stmt = bak
             return False
         # iterable
-        while self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
-            iter.append(self.token[self.pos])
-            self.pos += 1
+        while (t := self.consume_next_word()) != None:
+            iter.append(t)
         # newline TODO semicolon
-        if self.pos < len(self.token) and Newline.is_newline(self.token[self.pos]):
-            self.pos += 1
-        else:
+        if not self.consume_next_newline():
             self.pos, stmt = bak
             return False
         # do
-        #if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "do"):
-        #    self.pos += 1
-        #else:
-        if not self.consume_next_word_or_recover_if_str_is("do"):
+        if not self.consume_next_word_if_str_is("do"):
             self.pos, stmt = bak
             return False
         # newline TODO semicolon
-        if self.pos < len(self.token) and Newline.is_newline(self.token[self.pos]):
-            self.pos += 1
-        else:
+        if not self.consume_next_newline():
             self.pos, stmt = bak
             return False
         # body
@@ -523,10 +519,7 @@ class Parser:
             self.pos, stmt = bak
             return False
         # done
-        #if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "done"):
-        #    self.pos += 1
-        #else:
-        if not self.consume_next_word_or_recover_if_str_is("done"):
+        if not self.consume_next_word_if_str_is("done"):
             self.pos, stmt = bak
             return False
         stmt.append(ForExp(var, iter, body))
@@ -541,9 +534,10 @@ class Parser:
     def parse_pred_comparation(self) -> TestExp:
         bak = self.pos
         # test keyword
-        if Word.is_word_with(self.token[self.pos], "test"):
-            self.pos += 1
-        else:
+        #if Word.is_word_with(self.token[self.pos], "test"):
+        #    self.pos += 1
+        #else:
+        if not self.consume_next_word_if_str_is("test"):
             self.pos = bak
             return None
         lhs = None
@@ -581,9 +575,10 @@ class Parser:
     def parse_if(self, stmt: list[Exp]) -> bool:
         bak = (self.pos, stmt)
         # if
-        if Word.is_word_with(self.token[self.pos], "if"):
-            self.pos += 1
-        else:
+        #if Word.is_word_with(self.token[self.pos], "if"):
+        #    self.pos += 1
+        #else:
+        if not self.consume_next_word_if_str_is("if"):
             self.pos, stmt = bak
             return False
         # init for-exp fields
@@ -603,9 +598,10 @@ class Parser:
             self.pos, stmt = bak
             return False
         # then
-        if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "then"):
-            self.pos += 1
-        else:
+        #if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "then"):
+        #    self.pos += 1
+        #else:
+        if not self.consume_next_word_if_str_is("then"):
             self.pos, stmt = bak
             return False
         # newline TODO semicolon
