@@ -215,6 +215,13 @@ class ExitExp:
     def is_exit_exp(obj: object) -> bool:
         return isinstance(obj, ExitExp)
 
+class ReadExp:
+    def __init__(self, arg: Word):
+        self.arg = arg
+
+    def is_read_exp(obj: object) -> bool:
+        return isinstance(obj, ReadExp)
+
 class EchoExp:
     def __init__(self, args: list[Word]):
         self.args = args
@@ -295,6 +302,9 @@ class Parser:
                 continue
             elif self.parse_echo(stmt):
                 eprint("echo")
+                continue
+            elif self.parse_read(stmt):
+                eprint("read")
                 continue
             elif self.parse_exit(stmt):
                 eprint("exit")
@@ -381,6 +391,18 @@ class Parser:
                 exit_code = self.token[self.pos]
                 self.pos += 1
             stmt.append(ExitExp(exit_code))
+            return True
+        return False
+    
+    def parse_read(self, stmt: list[object]):
+        # same as above
+        if Word.is_word_with(self.token[self.pos], "read"):
+            arg = None
+            self.pos += 1
+            if self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
+                arg = self.token[self.pos]
+                self.pos += 1
+            stmt.append(ReadExp(arg))
             return True
         return False
     
@@ -712,6 +734,10 @@ class Translator:
             if increment != "":
                 body += increment
                 continue
+            increment = self.translate_read(exp)
+            if increment != "":
+                body += increment
+                continue
             increment = self.translate_echo(exp)
             if increment != "":
                 body += increment
@@ -774,6 +800,19 @@ class Translator:
             else:
                 exit_code = exp.exit_code.str
             code = fmt.format(exit_code)
+            return code
+        return ""
+    
+    def translate_read(self, exp: object) -> str:
+        if ReadExp.is_read_exp(exp):
+            self.sys_import = True
+            fmt = "{}sys.stdin.readline().strip()"
+            arg = None
+            if exp.arg == None:
+                arg = ""
+            else:
+                arg = f"{exp.arg.str} = "
+            code = fmt.format(arg)
             return code
         return ""
     
