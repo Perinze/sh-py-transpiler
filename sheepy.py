@@ -772,6 +772,8 @@ class Translator:
         if '*' in word:
             self.glob_import = True
             return f"sorted(glob.glob(\"{word}\"))"
+        if re.fullmatch(r'\d+', word):
+            return word
         return f"'{word}'"
     
     def translate_cd(self, exp: object) -> str:
