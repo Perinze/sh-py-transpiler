@@ -818,7 +818,7 @@ class Translator:
                 new_content = re.sub(r'\$.+', var, word)
                 word = 'f"' + new_content + '"'
                 return word
-        if '*' in word:
+        if '*' in word or '?' in word or '[' in word or ']' in word:
             self.glob_import = True
             return f"sorted(glob.glob(\"{word}\"))"
         #if re.fullmatch(r'\d+', word):
@@ -857,7 +857,8 @@ class Translator:
     def translate_read(self, exp: Exp) -> str:
         if ReadExp.is_read_exp(exp):
             self.sys_import = True
-            fmt = "{}sys.stdin.readline().strip()"
+            #fmt = "{}sys.stdin.readline().strip()"
+            fmt = "{}input()"
             arg = None
             if exp.arg == None:
                 arg = ""
