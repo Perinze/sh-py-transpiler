@@ -60,6 +60,9 @@ class Var(Word):
     def __init__(self, str: str, name: str):
         super().__init__(str)
         self.name = name
+    
+    def is_var(obj: object) -> bool:
+        return isinstance(obj, Var)
 
 class Lexer:
     def __init__(self, input: str):
@@ -194,6 +197,9 @@ class AssignExp:
     def __init__(self, name: str, value: str):
         self.name = name
         self.value = value
+    
+    def is_assign_exp(obj: object) -> bool:
+        return isinstance(obj, AssignExp)
 
 class CdExp:
     def __init__(self, dir: Word):
@@ -654,6 +660,16 @@ class Translator:
                 beginning_of_line = True
                 body += increment
                 continue
+            #increment = self.translate_comment(exp)
+            #if increment != "":
+            #    beginning_of_line = True
+            #    body += increment
+            #    continue
+            increment = self.translate_assign(exp)
+            if increment != "":
+                beginning_of_line = True
+                body += increment
+                continue
             increment = self.translate_echo(exp)
             if increment != "":
                 body += increment
@@ -673,8 +689,24 @@ class Translator:
         return ""
     
     # TODO implement word str only
+    # check variable as a whole word
     def translate_word(self, word: Word) -> str:
-        return f"'{word.str}'"
+        if Var.is_var(word):
+            return word.name
+        return self.translate_word_str(word.str)
+    
+    # check variable embedded in a word
+    def translate_word_str(self, word: str) -> str:
+        return f"'{word}'"
+    
+    def translate_assign(self, exp: object) -> str:
+        if AssignExp.is_assign_exp(exp):
+            fmt = "{} = '{}'"
+            name = exp.name
+            value = exp.value # TODO: naive, cannot process variable
+            code = fmt.format(name, value)
+            return code
+        return ""
     
     def translate_echo(self, exp: object) -> str:
         if EchoExp.is_echo_exp(exp):
