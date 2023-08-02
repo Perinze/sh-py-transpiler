@@ -534,38 +534,32 @@ class Parser:
     def parse_pred_comparation(self) -> TestExp:
         bak = self.pos
         # test keyword
-        #if Word.is_word_with(self.token[self.pos], "test"):
-        #    self.pos += 1
-        #else:
         if not self.consume_next_word_if_str_is("test"):
             self.pos = bak
             return None
         lhs = None
         # lhs
-        if Word.is_word(self.token[self.pos]):
-            lhs = self.token[self.pos]
-            self.pos += 1
+        if (t := self.consume_next_word()) != None:
+            lhs = t
         else:
             self.pos = bak
             return None
         # operator
         operator = None
-        if Word.is_word(self.token[self.pos]):
-            op = self.token[self.pos].str
+        if (t := self.consume_next_word()) != None:
+            op = t.str
             # check if operator is valid
             if not (op in test_operators):
                 self.pos = bak
                 return None
-            operator = self.token[self.pos]
-            self.pos += 1
+            operator = t
         else:
             self.pos = bak
             return None
         # rhs
         rhs = None
-        if Word.is_word(self.token[self.pos]):
-            rhs = self.token[self.pos]
-            self.pos += 1
+        if (t := self.consume_next_word()) != None:
+            rhs = t
         else:
             self.pos = bak
             return None
