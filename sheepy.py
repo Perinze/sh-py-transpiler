@@ -823,7 +823,7 @@ class Translator:
         if AssignExp.is_assign_exp(exp):
             fmt = "{} = {}"
             name = exp.name
-            value = self.translate_word_str(exp.value) # TODO: naive, cannot process variable
+            value = self.translate_word_str(exp.value)
             code = fmt.format(name, value)
             return code
         return ""
