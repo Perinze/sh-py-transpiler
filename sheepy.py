@@ -204,6 +204,9 @@ class AssignExp:
 class CdExp:
     def __init__(self, dir: Word):
         self.dir = dir
+    
+    def is_cd_exp(obj: object) -> bool:
+        return isinstance(obj, CdExp)
 
 class EchoExp:
     def __init__(self, args: list[Word]):
@@ -639,10 +642,13 @@ class Translator:
         #self.header = "#!/usr/bin/python3 -u\n"
         self.ast = ast
         self.subprocess_import = False
+        self.os_import = False
 
     def translate(self) -> str:
         header = "#!/usr/bin/python3 -u\n"
         body = self.translate_sequence(self.ast)
+        if self.os_import:
+            header += "import os\n"
         if self.subprocess_import:
             header += "import subprocess\n"
         return header + body
@@ -666,6 +672,11 @@ class Translator:
             #    body += increment
             #    continue
             increment = self.translate_assign(exp)
+            if increment != "":
+                beginning_of_line = True
+                body += increment
+                continue
+            increment = self.translate_cd(exp)
             if increment != "":
                 beginning_of_line = True
                 body += increment
@@ -698,6 +709,14 @@ class Translator:
     # check variable embedded in a word
     def translate_word_str(self, word: str) -> str:
         return f"'{word}'"
+    
+    def translate_cd(self, exp: object) -> str:
+        if CdExp.is_cd_exp(exp):
+            self.os_import = True
+            fmt = "os.chdir({})"
+            code = fmt.format(self.translate_word(exp.dir))
+            return code
+        return ""
     
     def translate_assign(self, exp: object) -> str:
         if AssignExp.is_assign_exp(exp):
