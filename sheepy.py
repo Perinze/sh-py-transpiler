@@ -43,6 +43,9 @@ class SQuote(Word):
         super().__init__(str)
         self.content = content
 
+    def is_squote(obj: object) -> bool:
+        return isinstance(obj, SQuote)
+
 class Newline:
     def is_newline(obj: object) -> bool:
         return isinstance(obj, Newline)
@@ -767,6 +770,8 @@ class Translator:
     # TODO implement word str only
     # check variable as a whole word
     def translate_word(self, word: Word) -> str:
+        if SQuote.is_squote(word):
+            return word.str
         if Var.is_var(word):
             name = word.name
             if re.fullmatch(r'\d+', name): # sys.argv[name]
