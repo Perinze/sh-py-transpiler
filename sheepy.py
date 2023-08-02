@@ -259,6 +259,9 @@ class IfExp:
         self.pred = pred
         self.branch = branch
 
+    def is_if_exp(obj: object) -> bool:
+        return isinstance(obj, IfExp)
+
 class WhileExp:
     def __init__(self, pred: TestExp, body: list[object]):
         self.pred = pred
@@ -753,6 +756,10 @@ class Translator:
             if increment != "":
                 body += increment
                 continue
+            increment = self.translate_if(exp, indent)
+            if increment != "":
+                body += increment
+                continue
             increment = self.translate_cmd(exp)
             if increment != "":
                 body += increment
@@ -786,8 +793,8 @@ class Translator:
         if '*' in word:
             self.glob_import = True
             return f"sorted(glob.glob(\"{word}\"))"
-        if re.fullmatch(r'\d+', word):
-            return word
+        #if re.fullmatch(r'\d+', word):
+        #    return word
         return f"'{word}'"
     
     def translate_cd(self, exp: object) -> str:
@@ -848,6 +855,40 @@ class Translator:
             for_header = fmt.format(var, ", ".join(iterlist))
             body = self.translate_sequence(exp.body, indent+1)
             return for_header + body
+        return ""
+
+    def translate_pred(self, pred: TestExp) -> str:
+        if CmpTestExp.is_cmp_test_exp(pred):
+            code_op = None
+            if pred.op.str == "=":
+                code_op = "=="
+            else:
+                code_op = pred.op.str
+            code_lhs = self.translate_word(pred.lhs)
+            code_rhs = self.translate_word(pred.rhs)
+            code = "{} {} {}".format(code_lhs, code_op, code_rhs)
+            return code
+        return ""
+
+    def translate_if(self, exp: object, indent: int) -> str:
+        if IfExp.is_if_exp(exp):
+            iffmt = "if {}:\n"
+            pred_str = self.translate_pred(exp.pred[0])
+            if_header = iffmt.format(pred_str)
+            body = self.translate_sequence(exp.branch[0], indent+1)
+            code = if_header + body
+            eliffmt = "elif {}:\n"
+            for i in range(1, len(exp.pred)):
+                pred_str = self.translate_pred(exp.pred[i])
+                elif_header = eliffmt.format(pred_str)
+                body = self.translate_sequence(exp.branch[i], indent+1)
+                code += elif_header + body
+            if len(exp.branch) > len(exp.pred): # else
+                else_header = "else:\n"
+                body = self.translate_sequence(exp.branch[-1], indent+1)
+                code += else_header + body
+            return code
+        return ""
 
     def translate_cmd(self, exp: object) -> str:
         if CmdExp.is_cmd_exp(exp):
