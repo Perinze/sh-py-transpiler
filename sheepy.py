@@ -385,7 +385,13 @@ class Parser:
             return True
         return False
 
-    def parse_newline(self, stmt: list[object]) -> bool:
+    def consume_next_word_or_recover_if_str_is(self, expect: str) -> bool:
+        if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], expect):
+            self.pos += 1
+            return True
+        return False
+
+    def parse_newline(self, stmt: list[Exp]) -> bool:
         # no need to check out of range since this method is called
         # for non-empty token list
         if Newline.is_newline(self.token[self.pos]):
@@ -413,8 +419,8 @@ class Parser:
     
     def parse_cd(self, stmt: list[object]) -> bool:
         # same as above
-        if Word.is_word_with(self.token[self.pos], "cd"):
-            self.pos += 1
+        #if Word.is_word_with(self.token[self.pos], "cd"):
+        if self.consume_next_word_or_recover_if_str_is("cd"):
             arg = None
             if self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
                 arg = self.token[self.pos]
@@ -425,9 +431,10 @@ class Parser:
     
     def parse_exit(self, stmt: list[Exp]) -> bool:
         # same as above
-        if Word.is_word_with(self.token[self.pos], "exit"):
+        #if Word.is_word_with(self.token[self.pos], "exit"):
+        if self.consume_next_word_or_recover_if_str_is("exit"):
             exit_code = None
-            self.pos += 1
+            #self.pos += 1
             if self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
                 exit_code = self.token[self.pos]
                 self.pos += 1
@@ -437,9 +444,10 @@ class Parser:
     
     def parse_read(self, stmt: list[Exp]) -> bool:
         # same as above
-        if Word.is_word_with(self.token[self.pos], "read"):
+        #if Word.is_word_with(self.token[self.pos], "read"):
+        if self.consume_next_word_or_recover_if_str_is("read"):
             arg = None
-            self.pos += 1
+            #self.pos += 1
             if self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
                 arg = self.token[self.pos]
                 self.pos += 1
@@ -449,9 +457,10 @@ class Parser:
     
     def parse_echo(self, stmt: list[Exp]) -> bool:
         # same as above
-        if Word.is_word_with(self.token[self.pos], "echo"):
+        #if Word.is_word_with(self.token[self.pos], "echo"):
+        if self.consume_next_word_or_recover_if_str_is("echo"):
             args = []
-            self.pos += 1
+            #self.pos += 1
             while self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
                 args.append(self.token[self.pos])
                 self.pos += 1
@@ -462,9 +471,10 @@ class Parser:
     def parse_for(self, stmt: list[Exp]) -> bool:
         bak = (self.pos, stmt)
         # for
-        if Word.is_word_with(self.token[self.pos], "for"):
-            self.pos += 1
-        else:
+        #if Word.is_word_with(self.token[self.pos], "for"):
+        #    self.pos += 1
+        #else:
+        if not self.consume_next_word_or_recover_if_str_is("for"):
             self.pos, stmt = bak
             return False
         # init for-exp fields
@@ -479,9 +489,10 @@ class Parser:
             self.pos, stmt = bak
             return False
         # in
-        if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "in"):
-            self.pos += 1
-        else:
+        #if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "in"):
+        #    self.pos += 1
+        #else:
+        if not self.consume_next_word_or_recover_if_str_is("in"):
             self.pos, stmt = bak
             return False
         # iterable
@@ -495,9 +506,10 @@ class Parser:
             self.pos, stmt = bak
             return False
         # do
-        if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "do"):
-            self.pos += 1
-        else:
+        #if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "do"):
+        #    self.pos += 1
+        #else:
+        if not self.consume_next_word_or_recover_if_str_is("do"):
             self.pos, stmt = bak
             return False
         # newline TODO semicolon
@@ -511,9 +523,10 @@ class Parser:
             self.pos, stmt = bak
             return False
         # done
-        if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "done"):
-            self.pos += 1
-        else:
+        #if self.pos < len(self.token) and Word.is_word_with(self.token[self.pos], "done"):
+        #    self.pos += 1
+        #else:
+        if not self.consume_next_word_or_recover_if_str_is("done"):
             self.pos, stmt = bak
             return False
         stmt.append(ForExp(var, iter, body))
