@@ -208,6 +208,13 @@ class CdExp:
     def is_cd_exp(obj: object) -> bool:
         return isinstance(obj, CdExp)
 
+class ExitExp:
+    def __init__(self, exit_code: Word):
+        self.exit_code = exit_code
+
+    def is_exit_exp(obj: object) -> bool:
+        return isinstance(obj, ExitExp)
+
 class EchoExp:
     def __init__(self, args: list[Word]):
         self.args = args
@@ -286,6 +293,9 @@ class Parser:
             elif self.parse_echo(stmt):
                 eprint("echo")
                 continue
+            elif self.parse_exit(stmt):
+                eprint("exit")
+                continue
             elif self.parse_for(stmt):
                 eprint("for")
                 continue
@@ -356,6 +366,18 @@ class Parser:
                 arg = self.token[self.pos]
                 self.pos += 1
             stmt.append(CdExp(arg))
+            return True
+        return False
+    
+    def parse_exit(self, stmt: list[object]):
+        # same as above
+        if Word.is_word_with(self.token[self.pos], "exit"):
+            exit_code = None
+            self.pos += 1
+            while self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
+                exit_code = self.token[self.pos]
+                self.pos += 1
+            stmt.append(ExitExp(exit_code))
             return True
         return False
     
