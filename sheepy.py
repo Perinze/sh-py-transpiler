@@ -239,6 +239,9 @@ class CmdExp:
     def __init__(self, cmd: list[Word]):
         self.cmd = cmd
 
+    def is_cmd_exp(obj: object) -> bool:
+        return isinstance(obj, CmdExp)
+
 class Parser:
     def __init__(self, token: list[object]):
         self.token = token
@@ -629,11 +632,14 @@ class Translator:
     def __init__(self, ast: list[object]):
         #self.header = "#!/usr/bin/python3 -u\n"
         self.ast = ast
+        self.subprocess_import = False
 
     def translate(self) -> str:
-        self.header = "#!/usr/bin/python3 -u\n"
+        header = "#!/usr/bin/python3 -u\n"
         body = self.translate_sequence(self.ast)
-        return self.header + body
+        if self.subprocess_import:
+            header += "import subprocess\n"
+        return header + body
     
     def translate_sequence(self, explist: list[object], indent: int = 0) -> str:
         body = ""
@@ -652,6 +658,10 @@ class Translator:
             if increment != "":
                 body += increment
                 continue
+            increment = self.translate_cmd(exp)
+            if increment != "":
+                body += increment
+                continue
             # none of these matches
             eprint("translate clause not implemented")
             return "error: not valid exp"
@@ -662,6 +672,10 @@ class Translator:
             return "\n"
         return ""
     
+    # TODO implement word str only
+    def translate_word(self, word: Word) -> str:
+        return f"'{word.str}'"
+    
     def translate_echo(self, exp: object) -> str:
         if EchoExp.is_echo_exp(exp):
             fmt = "print({})"
@@ -669,10 +683,15 @@ class Translator:
             code = fmt.format(", ".join(args))
             return code
         return ""
-    
-    # TODO implement word str only
-    def translate_word(self, word: Word) -> str:
-        return f"'{word.str}'"
+
+    def translate_cmd(self, exp: object) -> str:
+        if CmdExp.is_cmd_exp(exp):
+            self.subprocess_import = True
+            fmt = "subprocess.call([{}])"
+            args: list[str] = map(self.translate_word, exp.cmd)
+            code = fmt.format(", ".join(args))
+            return code
+        return ""
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
