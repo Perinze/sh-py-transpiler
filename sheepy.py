@@ -696,10 +696,14 @@ class Translator:
     def translate(self) -> str:
         header = "#!/usr/bin/python3 -u\n"
         body = self.translate_sequence(self.ast)
+        if self.glob_import:
+            header += "import glob\n"
         if self.os_import:
             header += "import os\n"
         if self.subprocess_import:
             header += "import subprocess\n"
+        if self.sys_import:
+            header += "import sys\n"
         return header + body
     
     def translate_sequence(self, explist: list[object], indent: int = 0) -> str:
@@ -764,7 +768,12 @@ class Translator:
     # check variable as a whole word
     def translate_word(self, word: Word) -> str:
         if Var.is_var(word):
-            return word.name
+            name = word.name
+            if re.fullmatch(r'\d+', name): # sys.argv[name]
+                self.sys_import = True
+                return f"sys.argv[{name}]"
+            else:
+                return name
         return self.translate_word_str(word.str)
     
     # check variable embedded in a word
