@@ -197,51 +197,67 @@ class Lexer:
     def cut(self, span: tuple[int, int]) -> None:
         self.input = self.input[span[1]:]
 
-class NewlineExp:
+class Exp:
+    pass
+
+class NewlineExp(Exp):
+    def __init__(self) -> None:
+        super().__init__()
+
     def is_newline_exp(obj: object) -> bool:
         return isinstance(obj, NewlineExp)
 
-class CommentExp:
-    pass
+class CommentExp(Exp):
+    def __init__(self) -> None:
+        super().__init__()
 
-class AssignExp:
-    def __init__(self, name: str, value: str):
+    def is_comment_exp(obj: object) -> bool:
+        return isinstance(obj, CommentExp)
+
+class AssignExp(Exp):
+    def __init__(self, name: str, value: str) -> None:
+        super().__init__()
         self.name = name
         self.value = value
     
     def is_assign_exp(obj: object) -> bool:
         return isinstance(obj, AssignExp)
 
-class CdExp:
-    def __init__(self, dir: Word):
+class CdExp(Exp):
+    def __init__(self, dir: Word) -> None:
+        super().__init__()
         self.dir = dir
     
     def is_cd_exp(obj: object) -> bool:
         return isinstance(obj, CdExp)
 
-class ExitExp:
-    def __init__(self, exit_code: Word):
+class ExitExp(Exp):
+    def __init__(self, exit_code: Word) -> None:
+        super().__init__()
         self.exit_code = exit_code
 
     def is_exit_exp(obj: object) -> bool:
         return isinstance(obj, ExitExp)
 
-class ReadExp:
-    def __init__(self, arg: Word):
+class ReadExp(Exp):
+    def __init__(self, arg: Word) -> None:
+        super().__init__()
         self.arg = arg
 
     def is_read_exp(obj: object) -> bool:
         return isinstance(obj, ReadExp)
 
-class EchoExp:
-    def __init__(self, args: list[Word]):
+class EchoExp(Exp):
+    def __init__(self, args: list[Word]) -> None:
+        super().__init__()
         self.args = args
 
     def is_echo_exp(obj: object) -> bool:
         return isinstance(obj, EchoExp)
 
-class ForExp:
-    def __init__(self, var: Word, iter: list[Word], body: list[object]):
+class ForExp(Exp):
+    def __init__(self, var: Word, iter: list[Word], body: list[object]) -> None:
+        super().__init__()
         self.var = var
         self.iter = iter
         self.body = body
@@ -249,8 +265,12 @@ class ForExp:
     def is_for_exp(obj: object) -> bool:
         return isinstance(obj, ForExp)
 
-class TestExp:
-    pass
+class TestExp(Exp):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def is_test_exp(obj: object) -> bool:
+        return isinstance(obj, TestExp)
 
 class CmpTestExp(TestExp):
     def __init__(self, op: Word, lhs: Word, rhs: Word) -> None:
@@ -262,41 +282,45 @@ class CmpTestExp(TestExp):
     def is_cmp_test_exp(obj: object) -> bool:
         return isinstance(obj, CmpTestExp)
 
-class IfExp:
-    def __init__(self, pred: list[TestExp], branch: list[list[object]]):
+class IfExp(Exp):
+    def __init__(self, pred: list[TestExp], branch: list[list[object]]) -> None:
+        super().__init__()
         self.pred = pred
         self.branch = branch
 
     def is_if_exp(obj: object) -> bool:
         return isinstance(obj, IfExp)
 
-class WhileExp:
-    def __init__(self, pred: TestExp, body: list[object]):
+class WhileExp(Exp):
+    def __init__(self, pred: TestExp, body: list[object]) -> None:
+        super().__init__()
         self.pred = pred
         self.body = body
 
     def is_while_exp(obj: object) -> bool:
         return isinstance(obj, WhileExp)
 
-class CmdExp:
-    def __init__(self, cmd: list[Word]):
+class CmdExp(Exp):
+    def __init__(self, cmd: list[Word]) -> None:
+        super().__init__()
         self.cmd = cmd
 
     def is_cmd_exp(obj: object) -> bool:
         return isinstance(obj, CmdExp)
 
 class Parser:
-    def __init__(self, token: list[object]):
+    def __init__(self, token: list[Token]) -> None:
+        super().__init__()
         self.token = token
         self.pos = 0
         #self.stmt = []
 
-    def parse(self):
+    def parse(self) -> None:
         stmt = []
         self.parse_sequence(stmt)
         return stmt
     
-    def parse_sequence(self, stmt: list[object]) -> bool:
+    def parse_sequence(self, stmt: list[Exp]) -> bool:
         bak = (self.pos, stmt)
         while True:
             if self.pos >= len(self.token):
@@ -399,7 +423,7 @@ class Parser:
             return True
         return False
     
-    def parse_exit(self, stmt: list[object]):
+    def parse_exit(self, stmt: list[Exp]) -> bool:
         # same as above
         if Word.is_word_with(self.token[self.pos], "exit"):
             exit_code = None
@@ -411,7 +435,7 @@ class Parser:
             return True
         return False
     
-    def parse_read(self, stmt: list[object]):
+    def parse_read(self, stmt: list[Exp]) -> bool:
         # same as above
         if Word.is_word_with(self.token[self.pos], "read"):
             arg = None
@@ -423,7 +447,7 @@ class Parser:
             return True
         return False
     
-    def parse_echo(self, stmt: list[object]):
+    def parse_echo(self, stmt: list[Exp]) -> bool:
         # same as above
         if Word.is_word_with(self.token[self.pos], "echo"):
             args = []
@@ -435,7 +459,7 @@ class Parser:
             return True
         return False
     
-    def parse_for(self, stmt: list[object]):
+    def parse_for(self, stmt: list[Exp]) -> bool:
         bak = (self.pos, stmt)
         # for
         if Word.is_word_with(self.token[self.pos], "for"):
@@ -541,7 +565,7 @@ class Parser:
         # success
         return CmpTestExp(operator, lhs, rhs)
 
-    def parse_if(self, stmt: list[object]):
+    def parse_if(self, stmt: list[Exp]) -> bool:
         bak = (self.pos, stmt)
         # if
         if Word.is_word_with(self.token[self.pos], "if"):
@@ -644,7 +668,7 @@ class Parser:
         stmt.append(IfExp(pred, branch))
         return True
     
-    def parse_while(self, stmt: list[object]):
+    def parse_while(self, stmt: list[Exp]) -> bool:
         bak = (self.pos, stmt)
         # while
         if Word.is_word_with(self.token[self.pos], "while"):
@@ -692,7 +716,7 @@ class Parser:
         stmt.append(WhileExp(pred, body))
         return True
     
-    def parse_cmd(self, stmt: list[object]):
+    def parse_cmd(self, stmt: list[Exp]) -> bool:
         cmd = []
         # same as above
         while self.pos < len(self.token) and Word.is_word(self.token[self.pos]):
@@ -702,7 +726,7 @@ class Parser:
         return True
 
 class Translator:
-    def __init__(self, ast: list[object]):
+    def __init__(self, ast: list[Exp]) -> None:
         #self.header = "#!/usr/bin/python3 -u\n"
         self.ast = ast
         self.glob_import = False
@@ -784,7 +808,7 @@ class Translator:
             return "error: not valid exp"
         return body
     
-    def translate_newline(self, exp: object) -> str:
+    def translate_newline(self, exp: Exp) -> str:
         if NewlineExp.is_newline_exp(exp):
             return "\n"
         return ""
@@ -819,7 +843,7 @@ class Translator:
         #    return word
         return f"'{word}'"
     
-    def translate_cd(self, exp: object) -> str:
+    def translate_cd(self, exp: Exp) -> str:
         if CdExp.is_cd_exp(exp):
             self.os_import = True
             fmt = "os.chdir({})"
@@ -827,7 +851,7 @@ class Translator:
             return code
         return ""
     
-    def translate_assign(self, exp: object) -> str:
+    def translate_assign(self, exp: Exp) -> str:
         if AssignExp.is_assign_exp(exp):
             fmt = "{} = {}"
             name = exp.name
@@ -836,7 +860,7 @@ class Translator:
             return code
         return ""
     
-    def translate_exit(self, exp: object) -> str:
+    def translate_exit(self, exp: Exp) -> str:
         if ExitExp.is_exit_exp(exp):
             self.sys_import = True
             fmt = "sys.exit({})"
@@ -848,7 +872,7 @@ class Translator:
             return code
         return ""
     
-    def translate_read(self, exp: object) -> str:
+    def translate_read(self, exp: Exp) -> str:
         if ReadExp.is_read_exp(exp):
             self.sys_import = True
             fmt = "{}sys.stdin.readline().strip()"
@@ -861,7 +885,7 @@ class Translator:
             return code
         return ""
     
-    def translate_echo(self, exp: object) -> str:
+    def translate_echo(self, exp: Exp) -> str:
         if EchoExp.is_echo_exp(exp):
             fmt = "print({})"
             args: list[str] = map(self.translate_word, exp.args)
@@ -869,7 +893,7 @@ class Translator:
             return code
         return ""
 
-    def translate_for(self, exp: object, indent: int) -> str:
+    def translate_for(self, exp: Exp, indent: int) -> str:
         if ForExp.is_for_exp(exp):
             fmt = "for {} in {}:\n"
             var = exp.var.str
@@ -892,7 +916,7 @@ class Translator:
             return code
         return ""
 
-    def translate_if(self, exp: object, indent: int) -> str:
+    def translate_if(self, exp: Exp, indent: int) -> str:
         if IfExp.is_if_exp(exp):
             iffmt = "if {}:\n"
             pred_str = self.translate_pred(exp.pred[0])
@@ -912,7 +936,7 @@ class Translator:
             return code
         return ""
 
-    def translate_while(self, exp: object, indent: int) -> str:
+    def translate_while(self, exp: Exp, indent: int) -> str:
         if WhileExp.is_while_exp(exp):
             fmt = "while {}:\n"
             pred_str = self.translate_pred(exp.pred)
@@ -922,7 +946,7 @@ class Translator:
             return code
         return ""
 
-    def translate_cmd(self, exp: object) -> str:
+    def translate_cmd(self, exp: Exp) -> str:
         if CmdExp.is_cmd_exp(exp):
             self.subprocess_import = True
             fmt = "subprocess.call([{}])"
@@ -947,7 +971,7 @@ if __name__ == '__main__':
         code = translator.translate()
         print(code)
 
-def repl_test(filename: str) -> tuple[object, object]:
+def repl_test(filename: str) -> tuple[list[Token], list[Exp]]:
     with open(filename) as f:
         lexer = Lexer(f.read())
         token = lexer.tokenize()
