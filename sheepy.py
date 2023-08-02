@@ -267,6 +267,9 @@ class WhileExp:
         self.pred = pred
         self.body = body
 
+    def is_while_exp(obj: object) -> bool:
+        return isinstance(obj, WhileExp)
+
 class CmdExp:
     def __init__(self, cmd: list[Word]):
         self.cmd = cmd
@@ -760,6 +763,10 @@ class Translator:
             if increment != "":
                 body += increment
                 continue
+            increment = self.translate_while(exp, indent)
+            if increment != "":
+                body += increment
+                continue
             increment = self.translate_cmd(exp)
             if increment != "":
                 body += increment
@@ -887,6 +894,16 @@ class Translator:
                 else_header = "else:\n"
                 body = self.translate_sequence(exp.branch[-1], indent+1)
                 code += else_header + body
+            return code
+        return ""
+
+    def translate_while(self, exp: object, indent: int) -> str:
+        if WhileExp.is_while_exp(exp):
+            fmt = "while {}:\n"
+            pred_str = self.translate_pred(exp.pred)
+            header = fmt.format(pred_str)
+            body = self.translate_sequence(exp.body, indent+1)
+            code = header + body
             return code
         return ""
 
