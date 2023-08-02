@@ -797,6 +797,13 @@ class Translator:
     
     # check variable embedded in a word
     def translate_word_str(self, word: str) -> str:
+        if '$' in word:
+            m = re.search(r'\$(.+)', word)
+            if m != None:
+                var = "{" + m.group(1) + "}"
+                new_content = re.sub(r'\$.+', var, word)
+                word = 'f"' + new_content + '"'
+                return word
         if '*' in word:
             self.glob_import = True
             return f"sorted(glob.glob(\"{word}\"))"
@@ -814,9 +821,9 @@ class Translator:
     
     def translate_assign(self, exp: object) -> str:
         if AssignExp.is_assign_exp(exp):
-            fmt = "{} = '{}'"
+            fmt = "{} = {}"
             name = exp.name
-            value = exp.value # TODO: naive, cannot process variable
+            value = self.translate_word_str(exp.value) # TODO: naive, cannot process variable
             code = fmt.format(name, value)
             return code
         return ""
