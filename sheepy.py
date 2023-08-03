@@ -237,10 +237,12 @@ class Typ:
     pass
 
 class WordTyp(Typ):
-    pass
+    def is_word_typ(obj: object) -> bool:
+        return isinstance(obj, WordTyp)
 
 class ListTyp(Typ):
-    pass
+    def is_list_typ(obj: object) -> bool:
+        return isinstance(obj, ListTyp)
 
 class Exp:
     pass
@@ -656,7 +658,7 @@ class Parser:
             args = []
             while (next_arg := self.consume_next_word()) != None:
                 args.append(next_arg)
-            eeprint(list(map(lambda w: w.str, args)))
+            eprint(list(map(lambda w: w.str, args)))
             stmt.append(EchoExp(args))
             return True
         return False
@@ -969,6 +971,7 @@ class Translator:
         self.os_import = False
         self.subprocess_import = False
         self.sys_import = False
+        self.env = {}
 
     def translate(self) -> str:
         header = "#!/usr/bin/python3 -u\n"
@@ -1075,22 +1078,23 @@ class Translator:
     # check variable embedded in a word
     def translate_word_str(self, word: str) -> str:
         if '$' in word:
-            vars = re.findall(r'(\${?(\w+)}?)', word)
-            eeprint(vars)
+            vars = re.findall(r'\${?(\w+)}?', word)
+            eprint(vars)
             new_content = word
-            eeprint(new_content)
-            for substr, varname in vars:
+            eprint(new_content)
+            for varname in vars:
+                eprint("varname", varname)
+                if ListTyp.is_list_typ(self.env[varname]):
+                    varname = f"' '.join({varname})"
                 codevar = "{" + varname + "}"
                 new_content = re.sub(r'\${?(\w+)}?', codevar, new_content, count=1)
-                eeprint(new_content)
+                eprint(new_content)
             new_content = 'f"' + new_content + '"'
-            eeprint(new_content)
+            eprint(new_content)
             return new_content
         if is_glob_str(word):
             self.glob_import = True
-            return f"sorted(glob.glob(\"{word}\"))"
-        #if re.fullmatch(r'\d+', word):
-        #    return word
+            return f'" ".join(sorted(glob.glob("{word}")))'
         return f"'{word}'"
     
     def translate_cd(self, exp: Exp) -> str:
@@ -1128,6 +1132,12 @@ class Translator:
             fmt = "{} = {}"
             name = exp.name
             #value = self.translate_word_str(exp.value)
+            if ListExp.is_list_exp(exp.value):
+                self.env[name] = ListTyp()
+            elif GlobExp.is_glob_exp(exp.value):
+                self.env[name] = ListTyp()
+            else:
+                self.env[name] = WordTyp()
             value = self.translate_value(exp.value)
             code = fmt.format(name, value)
             return code
