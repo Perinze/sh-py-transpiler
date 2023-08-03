@@ -143,6 +143,7 @@ class Lexer:
             return False
         elif m.span()[0] == 0:
             self.token.append(Comment(m.group(1)))
+            self.token.append(Newline())
             self.cut(m.span())
             return True
         return False
@@ -609,7 +610,7 @@ class Parser:
                 is_glob = True
                 break
         if is_glob:
-            return (GlobExp(fmtexp), ListTyp())
+            return (GlobExp(fmtexp, Typ()), ListTyp())
         else:
             return (fmtexp, WordTyp())
     
@@ -1111,7 +1112,7 @@ class Translator:
                 return f"[{', '.join(elem_str_list)}]"
         elif GlobExp.is_glob_exp(exp):
             self.glob_import = True
-            return f"sorted(glob.glob(\"{exp.str}\"))"
+            return f"sorted(glob.glob({self.translate_value(exp.str)}))"
         elif FormatExp.is_format_exp(exp):
             substrs = []
             for word in exp.list:
