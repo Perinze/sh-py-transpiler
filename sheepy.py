@@ -1,4 +1,5 @@
 #!/usr/bin/python3 -u
+import os
 import sys
 import re
 
@@ -13,8 +14,10 @@ t_VARCURLY = r'\${(\w+)}'
 t_WORD = r'(\S+)'
 t_EMPTY = r'\s+'
 
+test_str_empty_operators = ["-z", "-n"]
 test_str_cmp_operators = ["=", "!="]
 test_file_access_operators = ["-r", "-w", "-x"]
+test_file_type_operators = ["-e", "-f", "-d"]
 
 def eprint(*args, **kwargs) -> None:
     #print(*args, file=sys.stderr, **kwargs)
@@ -340,6 +343,15 @@ class TestExp(Exp):
     def is_test_exp(obj: object) -> bool:
         return isinstance(obj, TestExp)
 
+class FileTypeTestExp(TestExp):
+    def __init__(self, op: Word, file: Word) -> None:
+        super().__init__()
+        self.op = op
+        self.file = file
+    
+    def is_file_type_test_exp(obj: object) -> bool:
+        return isinstance(obj, FileTypeTestExp)
+
 class FileAccessTestExp(TestExp):
     def __init__(self, op: Word, file: Word) -> None:
         super().__init__()
@@ -349,15 +361,24 @@ class FileAccessTestExp(TestExp):
     def is_file_access_test_exp(obj: object) -> bool:
         return isinstance(obj, FileAccessTestExp)
 
-class CmpTestExp(TestExp):
+class StrEmptyTestExp(TestExp):
+    def __init__(self, op: Word, str: Word) -> None:
+        super().__init__()
+        self.op = op
+        self.str = str
+
+    def is_str_empty_test_exp(obj: object) -> bool:
+        return isinstance(obj, StrEmptyTestExp)
+
+class StrCmpTestExp(TestExp):
     def __init__(self, op: Word, lhs: Word, rhs: Word) -> None:
         super().__init__()
         self.op = op
         self.lhs = lhs
         self.rhs = rhs
 
-    def is_cmp_test_exp(obj: object) -> bool:
-        return isinstance(obj, CmpTestExp)
+    def is_str_cmp_test_exp(obj: object) -> bool:
+        return isinstance(obj, StrCmpTestExp)
 
 class IfExp(Exp):
     def __init__(self, pred: list[TestExp], branch: list[list[object]]) -> None:
@@ -686,11 +707,71 @@ class Parser:
 
     # TODO only implemented eq test in subset 2
     def parse_pred(self) -> TestExp:
+        if (testexp := self.parse_pred_file_type()) != None:
+            return testexp
         if (testexp := self.parse_pred_file_access()) != None:
             return testexp
         if (testexp := self.parse_pred_str_cmp()) != None:
             return testexp
+        if (testexp := self.parse_pred_str_empty()) != None:
+            return testexp
         return None
+
+    def parse_pred_str_empty(self) -> TestExp:
+        bak = self.pos
+        # test keyword
+        if not self.consume_next_word_if_is("test"):
+            self.pos = bak
+            return None
+        # operator
+        operator = None
+        if (t := self.consume_next_word()) != None:
+            op = t.str
+            # check if operator is valid
+            if not (op in test_str_empty_operators):
+                self.pos = bak
+                return None
+            operator = t
+        else:
+            self.pos = bak
+            return None
+        # file
+        file = None
+        if (t := self.consume_next_word()) != None:
+            file = t
+        else:
+            self.pos = bak
+            return None
+        # success
+        return StrEmptyTestExp(operator, file)
+
+    def parse_pred_file_type(self) -> TestExp:
+        bak = self.pos
+        # test keyword
+        if not self.consume_next_word_if_is("test"):
+            self.pos = bak
+            return None
+        # operator
+        operator = None
+        if (t := self.consume_next_word()) != None:
+            op = t.str
+            # check if operator is valid
+            if not (op in test_file_type_operators):
+                self.pos = bak
+                return None
+            operator = t
+        else:
+            self.pos = bak
+            return None
+        # file
+        file = None
+        if (t := self.consume_next_word()) != None:
+            file = t
+        else:
+            self.pos = bak
+            return None
+        # success
+        return FileTypeTestExp(operator, file)
 
     def parse_pred_file_access(self) -> TestExp:
         bak = self.pos
@@ -753,7 +834,7 @@ class Parser:
             self.pos = bak
             return None
         # success
-        return CmpTestExp(operator, lhs, rhs)
+        return StrCmpTestExp(operator, lhs, rhs)
 
     def parse_if(self, stmt: list[Exp]) -> bool:
         bak = (self.pos, stmt)
@@ -1090,6 +1171,18 @@ class Translator:
         return ""
 
     def translate_pred(self, pred: TestExp) -> str:
+        if FileTypeTestExp.is_file_type_test_exp(pred):
+            self.os_import = True
+            code_func = None
+            if pred.op.str == '-e':
+                code_func = "exists"
+            elif pred.op.str == '-f':
+                code_func = "isfile"
+            elif pred.op.str == '-d':
+                code_func = "isdir"
+            code_file = self.translate_word(pred.file)
+            code = "os.path.{}({})".format(code_func, code_file)
+            return code
         if FileAccessTestExp.is_file_access_test_exp(pred):
             self.os_import = True
             code_flag = None
@@ -1102,7 +1195,7 @@ class Translator:
             code_file = self.translate_word(pred.file)
             code = "os.access({}, {})".format(code_file, code_flag)
             return code
-        if CmpTestExp.is_cmp_test_exp(pred):
+        if StrCmpTestExp.is_str_cmp_test_exp(pred):
             code_op = None
             if pred.op.str == "=":
                 code_op = "=="
@@ -1111,6 +1204,15 @@ class Translator:
             code_lhs = self.translate_word(pred.lhs)
             code_rhs = self.translate_word(pred.rhs)
             code = "{} {} {}".format(code_lhs, code_op, code_rhs)
+            return code
+        if StrEmptyTestExp.is_str_empty_test_exp(pred):
+            code_op = None
+            if pred.op.str == "-z":
+                code_op = "=="
+            else:
+                code_op = "!="
+            code_lhs = self.translate_word(pred.str)
+            code = "{} {} ''".format(code_lhs, code_op)
             return code
         return ""
 
