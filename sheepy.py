@@ -116,10 +116,10 @@ class Lexer:
                 continue
             elif self.lex_assign():
                 continue
-            elif self.lex_var():
-                continue
-            elif self.lex_varcurly():
-                continue
+            #elif self.lex_var():
+            #    continue
+            #elif self.lex_varcurly():
+            #    continue
             elif self.lex_word():
                 continue
             elif self.lex_empty():
@@ -187,25 +187,25 @@ class Lexer:
             return True
         return False
 
-    def lex_var(self) -> bool:
-        m = re.search(t_VAR, self.input)
-        if m == None:
-            return False
-        elif m.span()[0] == 0:
-            self.token.append(Var(m.group(0), m.group(1)))
-            self.cut(m.span())
-            return True
-        return False
+    #def lex_var(self) -> bool:
+    #    m = re.search(t_VAR, self.input)
+    #    if m == None:
+    #        return False
+    #    elif m.span()[0] == 0:
+    #        self.token.append(Var(m.group(0), m.group(1)))
+    #        self.cut(m.span())
+    #        return True
+    #    return False
 
-    def lex_varcurly(self) -> bool:
-        m = re.search(t_VARCURLY, self.input)
-        if m == None:
-            return False
-        elif m.span()[0] == 0:
-            self.token.append(Var(m.group(0), m.group(1)))
-            self.cut(m.span())
-            return True
-        return False
+    #def lex_varcurly(self) -> bool:
+    #    m = re.search(t_VARCURLY, self.input)
+    #    if m == None:
+    #        return False
+    #    elif m.span()[0] == 0:
+    #        self.token.append(Var(m.group(0), m.group(1)))
+    #        self.cut(m.span())
+    #        return True
+    #    return False
 
     def lex_word(self) -> bool:
         m = re.search(t_WORD, self.input)
@@ -655,6 +655,7 @@ class Parser:
             args = []
             while (next_arg := self.consume_next_word()) != None:
                 args.append(next_arg)
+            eeprint(list(map(lambda w: w.str, args)))
             stmt.append(EchoExp(args))
             return True
         return False
@@ -1073,12 +1074,17 @@ class Translator:
     # check variable embedded in a word
     def translate_word_str(self, word: str) -> str:
         if '$' in word:
-            m = re.search(r'\$(.+)', word)
-            if m != None:
-                var = "{" + m.group(1) + "}"
-                new_content = re.sub(r'\$.+', var, word)
-                word = 'f"' + new_content + '"'
-                return word
+            vars = re.findall(r'(\${?(\w+)}?)', word)
+            eeprint(vars)
+            new_content = word
+            eeprint(new_content)
+            for substr, varname in vars:
+                codevar = "{" + varname + "}"
+                new_content = re.sub(r'\${?(\w+)}?', codevar, new_content, count=1)
+                eeprint(new_content)
+            new_content = 'f"' + new_content + '"'
+            eeprint(new_content)
+            return new_content
         if is_glob_str(word):
             self.glob_import = True
             return f"sorted(glob.glob(\"{word}\"))"
