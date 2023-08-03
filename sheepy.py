@@ -5,6 +5,7 @@ import re
 t_SHEBANG = r'#!/bin/dash\n'
 t_COMMENT = r'(#.*)\n'
 t_SQUOTE = r'\'([^\']*)\''
+t_DQUOTE = r'"([^"]*)"'
 t_NEWLINE = r'\n'
 t_ASSIGN = r'(\w+)=(\S+)'
 t_VAR = r'\$(\w+)'
@@ -62,6 +63,14 @@ class SQuote(Word):
     def is_squote(obj: object) -> bool:
         return isinstance(obj, SQuote)
 
+class DQuote(Word):
+    def __init__(self, str: str, content: str) -> None:
+        super().__init__(str)
+        self.content = content
+
+    def is_dquote(obj: object) -> bool:
+        return isinstance(obj, DQuote)
+
 class Newline(Token):
     def __init__(self) -> None:
         super().__init__()
@@ -97,6 +106,8 @@ class Lexer:
             if self.lex_comment():
                 continue
             elif self.lex_squote():
+                continue
+            elif self.lex_dquote():
                 continue
             elif self.lex_newline():
                 continue
@@ -139,6 +150,16 @@ class Lexer:
             return False
         elif m.span()[0] == 0:
             self.token.append(SQuote(m.group(0), m.group(1)))
+            self.cut(m.span())
+            return True
+        return False
+    
+    def lex_dquote(self) -> bool:
+        m = re.search(t_DQUOTE, self.input)
+        if m == None:
+            return False
+        elif m.span()[0] == 0:
+            self.token.append(DQuote(m.group(0), m.group(1)))
             self.cut(m.span())
             return True
         return False
@@ -956,6 +977,8 @@ class Translator:
     # check variable as a whole word
     def translate_word(self, word: Word) -> str:
         if SQuote.is_squote(word):
+            return word.str
+        if DQuote.is_dquote(word):
             return word.str
         if Var.is_var(word):
             name = word.name
