@@ -1132,7 +1132,7 @@ class Translator:
             fmt = "{} = {}"
             name = exp.name
             #value = self.translate_word_str(exp.value)
-            if ListExp.is_list_exp(exp.value):
+            if ListExp.is_list_exp(exp.value) and len(exp.value.list) > 1:
                 self.env[name] = ListTyp()
             elif GlobExp.is_glob_exp(exp.value):
                 self.env[name] = ListTyp()
