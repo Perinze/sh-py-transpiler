@@ -15,7 +15,8 @@ t_EMPTY = r'\s+'
 test_operators = ["=", "!="]
 
 def eprint(*args, **kwargs) -> None:
-    print(*args, file=sys.stderr, **kwargs)
+    #print(*args, file=sys.stderr, **kwargs)
+    pass
 
 def is_glob_str(s: str) -> bool:
     if '*' in s or '?' in s or '[' in s or ']' in s:
@@ -561,7 +562,7 @@ class Parser:
             value = t.value
             typ = None
             value_str_list = re.split(' +', value)
-            exp_typ_list = map(Parser.str_exp_mapper, value_str_list)
+            exp_typ_list = list(map(Parser.str_exp_mapper, value_str_list))
             list_exp = ListExp(exp_typ_list)
             typ = ListTyp
             stmt.append(AssignExp(t.name, list_exp, typ))
@@ -949,7 +950,10 @@ class Translator:
             elem_str_list = []
             for e, t in exp.list:
                 elem_str_list.append(self.translate_value(e, t))
-            return f"' '.join([{', '.join(elem_str_list)}])"
+            if len(elem_str_list) == 1:
+                return elem_str_list[0]
+            else:
+                return f"[{', '.join(elem_str_list)}]"
         elif GlobExp.is_glob_exp(exp):
             self.glob_import = True
             return f"sorted(glob.glob(\"{exp.str}\"))"
@@ -1002,7 +1006,7 @@ class Translator:
     def translate_echo(self, exp: Exp) -> str:
         if EchoExp.is_echo_exp(exp):
             fmt = "print({})"
-            args: list[str] = map(self.translate_word, exp.args)
+            args: list[str] = list(map(self.translate_word, exp.args))
             code = fmt.format(", ".join(args))
             return code
         return ""
@@ -1011,7 +1015,7 @@ class Translator:
         if ForExp.is_for_exp(exp):
             fmt = "for {} in {}:\n"
             var = exp.var.str
-            iterlist = map(self.translate_word, exp.iter)
+            iterlist = list(map(self.translate_word, exp.iter))
             for_header = fmt.format(var, ", ".join(iterlist))
             body = self.translate_sequence(exp.body, indent+1)
             return for_header + body
@@ -1064,7 +1068,7 @@ class Translator:
         if CmdExp.is_cmd_exp(exp):
             self.subprocess_import = True
             fmt = "subprocess.call([{}])"
-            args: list[str] = map(self.translate_word, exp.cmd)
+            args: list[str] = list(map(self.translate_word, exp.cmd))
             code = fmt.format(", ".join(args))
             return code
         return ""
