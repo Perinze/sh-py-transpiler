@@ -1084,7 +1084,10 @@ class Translator:
             eprint(new_content)
             for varname in vars:
                 eprint("varname", varname)
-                if ListTyp.is_list_typ(self.env[varname]):
+                if re.fullmatch(r'\d+', varname): # sys.argv[name]
+                    self.sys_import = True
+                    varname = f"sys.argv[{varname}]"
+                elif varname in self.env.keys() and ListTyp.is_list_typ(self.env[varname]):
                     varname = f"' '.join({varname})"
                 codevar = "{" + varname + "}"
                 new_content = re.sub(r'\${?(\w+)}?', codevar, new_content, count=1)
