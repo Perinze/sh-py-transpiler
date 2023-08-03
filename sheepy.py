@@ -17,6 +17,11 @@ test_operators = ["=", "!="]
 def eprint(*args, **kwargs) -> None:
     print(*args, file=sys.stderr, **kwargs)
 
+def is_glob_str(s: str) -> bool:
+    if '*' in s or '?' in s or '[' in s or ']' in s:
+        return True
+    return False
+
 class Token:
     pass
 
@@ -197,6 +202,15 @@ class Lexer:
     def cut(self, span: tuple[int, int]) -> None:
         self.input = self.input[span[1]:]
 
+class Typ:
+    pass
+
+class WordTyp(Typ):
+    pass
+
+class ListTyp(Typ):
+    pass
+
 class Exp:
     pass
 
@@ -215,11 +229,37 @@ class CommentExp(Exp):
     def is_comment_exp(obj: object) -> bool:
         return isinstance(obj, CommentExp)
 
+class ListExp(Exp):
+    def __init__(self, list: list[tuple[Exp, Typ]]) -> None:
+        super().__init__()
+        self.list = list
+
+    def is_list_exp(obj: object) -> bool:
+        return isinstance(obj, ListExp)
+
+class GlobExp(Exp):
+    def __init__(self, str: str, typ: Typ) -> None:
+        super().__init__()
+        self.str = str
+        self.typ = typ
+
+    def is_glob_exp(obj: object) -> bool:
+        return isinstance(obj, GlobExp)
+
+class FormatExp(Exp):
+    def __init__(self, list: list[Word]) -> None:
+        super().__init__()
+        self.list = list
+    
+    def is_format_exp(obj: object) -> bool:
+        return isinstance(obj, FormatExp)
+
 class AssignExp(Exp):
-    def __init__(self, name: str, value: str) -> None:
+    def __init__(self, name: str, value: Exp, typ: Typ) -> None:
         super().__init__()
         self.name = name
         self.value = value
+        self.typ = typ
     
     def is_assign_exp(obj: object) -> bool:
         return isinstance(obj, AssignExp)
@@ -471,10 +511,60 @@ class Parser:
             self.pos += 1
             return True
         return False
+
+    def var_extractor(s: str) -> FormatExp:
+        pat = r'\$(\w+|{\w+})'
+        it = re.finditer(pat, s)
+        prev = 0
+        spanlist = []
+        isvar = []
+        n = 0
+        for m in it:
+            span = m.span()
+            if prev < span[0]:
+                spanlist.append((prev, span[0]))
+                isvar.append(False)
+                n += 1
+            spanlist.append((span[0], span[1]))
+            isvar.append(True)
+            n += 1
+            prev = span[1]
+        if prev < len(s):
+            spanlist.append((prev, len(s)))
+            isvar.append(False)
+            n += 1
+        fmtlist = []
+        for i in range(n):
+            word = s[spanlist[i][0]:spanlist[i][1]]
+            if isvar[i]:
+                name = re.sub(r'[${}]', '', word)
+                fmtlist.append(Var(word, name))
+            else:
+                fmtlist.append(Word(word))
+        return FormatExp(fmtlist)
+
+    # s must have no white space
+    def str_exp_mapper(s: str) -> tuple[Exp, Typ]:
+        fmtexp = Parser.var_extractor(s)
+        is_glob = False
+        for word in fmtexp.list:
+            if is_glob_str(word.str):
+                is_glob = True
+                break
+        if is_glob:
+            return (GlobExp(fmtexp), ListTyp())
+        else:
+            return (fmtexp, WordTyp())
     
     def parse_assign(self, stmt: list[Exp]) -> bool:
         if (t := self.consume_next_assign()) != None:
-            stmt.append(AssignExp(t.name, t.value))
+            value = t.value
+            typ = None
+            value_str_list = re.split(' +', value)
+            exp_typ_list = map(Parser.str_exp_mapper, value_str_list)
+            list_exp = ListExp(exp_typ_list)
+            typ = ListTyp
+            stmt.append(AssignExp(t.name, list_exp, typ))
             return True
         return False
     
@@ -839,7 +929,7 @@ class Translator:
                 new_content = re.sub(r'\$.+', var, word)
                 word = 'f"' + new_content + '"'
                 return word
-        if '*' in word or '?' in word or '[' in word or ']' in word:
+        if is_glob_str(word):
             self.glob_import = True
             return f"sorted(glob.glob(\"{word}\"))"
         #if re.fullmatch(r'\d+', word):
@@ -854,11 +944,31 @@ class Translator:
             return code
         return ""
     
+    def translate_value(self, exp: Exp, typ: Typ = Typ()) -> str:
+        if ListExp.is_list_exp(exp):
+            elem_str_list = []
+            for e, t in exp.list:
+                elem_str_list.append(self.translate_value(e, t))
+            return f"' '.join([{', '.join(elem_str_list)}])"
+        elif GlobExp.is_glob_exp(exp):
+            self.glob_import = True
+            return f"sorted(glob.glob(\"{exp.str}\"))"
+        elif FormatExp.is_format_exp(exp):
+            substrs = []
+            for word in exp.list:
+                if Var.is_var(word):
+                    substrs.append("{" + word.name + "}")
+                else:
+                    substrs.append(word.str)
+            fmt_str_content = "".join(substrs)
+            return f'f"{fmt_str_content}"'
+    
     def translate_assign(self, exp: Exp) -> str:
         if AssignExp.is_assign_exp(exp):
             fmt = "{} = {}"
             name = exp.name
-            value = self.translate_word_str(exp.value)
+            #value = self.translate_word_str(exp.value)
+            value = self.translate_value(exp.value)
             code = fmt.format(name, value)
             return code
         return ""
