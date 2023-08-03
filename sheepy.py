@@ -12,10 +12,15 @@ t_VARCURLY = r'\${(\w+)}'
 t_WORD = r'(\S+)'
 t_EMPTY = r'\s+'
 
-test_operators = ["=", "!="]
+test_str_cmp_operators = ["=", "!="]
+test_file_access_operators = ["-r", "-w", "-x"]
 
 def eprint(*args, **kwargs) -> None:
     #print(*args, file=sys.stderr, **kwargs)
+    pass
+
+def eeprint(*args, **kwargs) -> None:
+    print(*args, file=sys.stderr, **kwargs)
     pass
 
 def is_glob_str(s: str) -> bool:
@@ -313,6 +318,15 @@ class TestExp(Exp):
 
     def is_test_exp(obj: object) -> bool:
         return isinstance(obj, TestExp)
+
+class FileAccessTestExp(TestExp):
+    def __init__(self, op: Word, file: Word) -> None:
+        super().__init__()
+        self.op = op
+        self.file = file
+
+    def is_file_access_test_exp(obj: object) -> bool:
+        return isinstance(obj, FileAccessTestExp)
 
 class CmpTestExp(TestExp):
     def __init__(self, op: Word, lhs: Word, rhs: Word) -> None:
@@ -651,11 +665,41 @@ class Parser:
 
     # TODO only implemented eq test in subset 2
     def parse_pred(self) -> TestExp:
-        testexp = self.parse_pred_comparation()
-        if testexp != None:
+        if (testexp := self.parse_pred_file_access()) != None:
             return testexp
+        if (testexp := self.parse_pred_str_cmp()) != None:
+            return testexp
+        return None
 
-    def parse_pred_comparation(self) -> TestExp:
+    def parse_pred_file_access(self) -> TestExp:
+        bak = self.pos
+        # test keyword
+        if not self.consume_next_word_if_is("test"):
+            self.pos = bak
+            return None
+        # operator
+        operator = None
+        if (t := self.consume_next_word()) != None:
+            op = t.str
+            # check if operator is valid
+            if not (op in test_file_access_operators):
+                self.pos = bak
+                return None
+            operator = t
+        else:
+            self.pos = bak
+            return None
+        # file
+        file = None
+        if (t := self.consume_next_word()) != None:
+            file = t
+        else:
+            self.pos = bak
+            return None
+        # success
+        return FileAccessTestExp(operator, file)
+
+    def parse_pred_str_cmp(self) -> TestExp:
         bak = self.pos
         # test keyword
         if not self.consume_next_word_if_is("test"):
@@ -673,7 +717,7 @@ class Parser:
         if (t := self.consume_next_word()) != None:
             op = t.str
             # check if operator is valid
-            if not (op in test_operators):
+            if not (op in test_str_cmp_operators):
                 self.pos = bak
                 return None
             operator = t
@@ -750,19 +794,20 @@ class Parser:
                 return False
             branch.append(body)
         # else
-        if not self.consume_next_word_if_is("else"):
-            self.pos, stmt = bak
-            return False
-        # newline TODO semicolon
-        if not self.consume_next_newline():
-            self.pos, stmt = bak
-            return False
-        # body
-        body = []
-        if not self.parse_sequence(body):
-            self.pos, stmt = bak
-            return False
-        branch.append(body)
+        if self.next_is_word_with("else"):
+            if not self.consume_next_word_if_is("else"):
+                self.pos, stmt = bak
+                return False
+            # newline TODO semicolon
+            if not self.consume_next_newline():
+                self.pos, stmt = bak
+                return False
+            # body
+            body = []
+            if not self.parse_sequence(body):
+                self.pos, stmt = bak
+                return False
+            branch.append(body)
         # fi
         if not self.consume_next_word_if_is("fi"):
             self.pos, stmt = bak
@@ -1022,6 +1067,18 @@ class Translator:
         return ""
 
     def translate_pred(self, pred: TestExp) -> str:
+        if FileAccessTestExp.is_file_access_test_exp(pred):
+            self.os_import = True
+            code_flag = None
+            if pred.op.str == '-r':
+                code_flag = "os.R_OK"
+            elif pred.op.str == '-w':
+                code_flag = "os.W_OK"
+            elif pred.op.str == '-x':
+                code_flag = "os.X_OK"
+            code_file = self.translate_word(pred.file)
+            code = "os.access({}, {})".format(code_file, code_flag)
+            return code
         if CmpTestExp.is_cmp_test_exp(pred):
             code_op = None
             if pred.op.str == "=":
@@ -1084,7 +1141,6 @@ if __name__ == '__main__':
         eprint(token)
         parser = Parser(token)
         stmt = parser.parse()
-        eprint(stmt)
         translator = Translator(stmt)
         code = translator.translate()
         print(code)
