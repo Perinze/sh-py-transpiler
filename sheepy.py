@@ -208,8 +208,9 @@ class NewlineExp(Exp):
         return isinstance(obj, NewlineExp)
 
 class CommentExp(Exp):
-    def __init__(self) -> None:
+    def __init__(self, content: str) -> None:
         super().__init__()
+        self.content = content
 
     def is_comment_exp(obj: object) -> bool:
         return isinstance(obj, CommentExp)
@@ -329,9 +330,9 @@ class Parser:
             elif self.next_is_terminator():
                 eprint("block terminate")
                 return True
-            #elif self.parse_comment(stmt):
-            #    eprint("comment")
-            #    continue
+            elif self.parse_comment(stmt):
+                eprint("comment")
+                continue
             elif self.parse_newline(stmt):
                 eprint("newline")
                 continue
@@ -371,6 +372,13 @@ class Parser:
 
     def pos_out_of_range(self) -> bool:
         return self.pos >= len(self.token)
+    
+    def next_is_comment(self) -> bool:
+        if self.pos_out_of_range():
+            return False
+        if Comment.is_comment(self.token[self.pos]):
+            return True
+        return False
 
     def next_is_word(self) -> bool:
         if self.pos_out_of_range():
@@ -415,6 +423,13 @@ class Parser:
 
     # methods below will consume token
 
+    def consume_next_comment(self) -> Comment:
+        if self.next_is_comment():
+            c = self.token[self.pos]
+            self.pos += 1
+            return c
+        return None
+
     def consume_next_word(self) -> Word:
         if self.next_is_word():
             word = self.token[self.pos]
@@ -449,13 +464,13 @@ class Parser:
             return True
         return False
     
-    #def parse_comment(self, stmt: list[object]) -> bool:
-    #    # same as above
-    #    if Comment.is_comment(self.token[self.pos]):
-    #        stmt.append(CommentExp())
-    #        self.pos += 1
-    #        return True
-    #    return False
+    def parse_comment(self, stmt: list[object]) -> bool:
+        # same as above
+        if (c := self.consume_next_comment()) != None:
+            stmt.append(CommentExp(c.content))
+            self.pos += 1
+            return True
+        return False
     
     def parse_assign(self, stmt: list[Exp]) -> bool:
         if (t := self.consume_next_assign()) != None:
@@ -709,7 +724,6 @@ class Parser:
 
 class Translator:
     def __init__(self, ast: list[Exp]) -> None:
-        #self.header = "#!/usr/bin/python3 -u\n"
         self.ast = ast
         self.glob_import = False
         self.os_import = False
@@ -737,16 +751,18 @@ class Translator:
             if beginning_of_line:
                 body += shift_str
                 beginning_of_line = False
+            # TODO insert space between cmd and trailing comment
+            # which require another state
             increment = self.translate_newline(exp)
             if increment != "":
                 beginning_of_line = True
                 body += increment
                 continue
-            #increment = self.translate_comment(exp)
-            #if increment != "":
-            #    beginning_of_line = True
-            #    body += increment
-            #    continue
+            increment = self.translate_comment(exp)
+            if increment != "":
+                beginning_of_line = True
+                body += increment
+                continue
             increment = self.translate_assign(exp)
             if increment != "":
                 beginning_of_line = True
@@ -793,6 +809,11 @@ class Translator:
     def translate_newline(self, exp: Exp) -> str:
         if NewlineExp.is_newline_exp(exp):
             return "\n"
+        return ""
+
+    def translate_comment(self, exp: Exp) -> str:
+        if CommentExp.is_comment_exp(exp):
+            return f"#{exp.content}"
         return ""
     
     # TODO implement word str only
